@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, HttpUrl, model_validator
 
@@ -32,6 +32,30 @@ class ConversationOutput(DomainModel):
     reference_product: ReferenceProduct | None = None
     suggestions: list[ProductSuggestion] = Field(default_factory=list, max_length=10)
     change_intent: ChangeIntent = ChangeIntent.RERANK
+
+    @model_validator(mode="before")
+    @classmethod
+    def discard_incomplete_reference_products(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        if normalized.get("change_intent") is None:
+            normalized["change_intent"] = ChangeIntent.RERANK
+        reference = normalized.get("reference_product")
+        if isinstance(reference, dict) and not (
+            reference.get("brand") and reference.get("model")
+        ):
+            normalized["reference_product"] = None
+        requirements = normalized.get("requirements")
+        if isinstance(requirements, dict):
+            normalized_requirements = dict(requirements)
+            nested_reference = normalized_requirements.get("reference_product")
+            if isinstance(nested_reference, dict) and not (
+                nested_reference.get("brand") and nested_reference.get("model")
+            ):
+                normalized_requirements["reference_product"] = None
+            normalized["requirements"] = normalized_requirements
+        return normalized
 
     @model_validator(mode="after")
     def conversation_state_is_consistent(self) -> "ConversationOutput":

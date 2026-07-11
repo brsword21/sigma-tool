@@ -1,24 +1,40 @@
 import json
+import re
 from dataclasses import dataclass
 
 from app.domain.models import ChangeIntent, ReferenceProduct, Requirements
 from app.llm.schemas import ConversationOutput, ProductSuggestion
 from app.services.ports import LLMClient
 
-CONVERSATION_PROMPT_V1 = """Jesteś polskim doradcą używanych słuchawek.
-Aktualizuj wymagania na podstawie wiadomości.
-Rozpoznaj produkt referencyjny, jeśli użytkownik poda markę lub model,
-i zachowaj go w kolejnych turach.
+CONVERSATION_PROMPT_V1 = """Jesteś polskim doradcą zakupowym na całym rynku używanej elektroniki.
+Najpierw rozpoznaj kategorię urządzenia z wiadomości użytkownika i zapisz ją jako krótki,
+stabilny identyfikator w requirements.category, np. smartphones, laptops, tablets, consoles,
+cameras, headphones lub smartwatches. Nie zakładaj kategorii na podstawie poprzedniej wartości
+electronics. Aktualizuj pozostałe wymagania na podstawie wiadomości.
+Rozpoznaj produkt referencyjny tylko wtedy, gdy użytkownik poda jednoznaczny model produktu
+(z marką podaną wprost albo możliwą do pewnego ustalenia) i zachowaj go w kolejnych turach.
+Sama marka, np. „słuchawki Sony”, nie jest produktem referencyjnym: w takim przypadku ustaw
+reference_product=null zarówno na poziomie głównym, jak i w requirements.
 Zadaj najwyżej jedno istotne pytanie, tylko gdy brakuje budżetu lub zastosowania/ważnej cechy.
+Pytanie musi wprost dotyczyć rozpoznanej kategorii lub urządzenia użytkownika. Nigdy nie pytaj
+o cechy innej kategorii. Przykład: dla Samsung S25 pytaj o budżet na telefon, nie o słuchawki.
 Łącznie w sesji wolno zadać najwyżej 3 pytania. Gdy dane wystarczają, zwróć 4–6 konkretnych modeli.
 Produkt referencyjny razem z budżetem i co najmniej jedną ważną cechą lub zastosowaniem
 jest wystarczającym wejściem: ustaw missing_critical_information=false, question=null
 i zwróć 4–6 propozycji. Nie zwracaj new_product_research bez propozycji modeli.
+Jeśli użytkownik mówi, że chce kupić konkretny model, traktuj go jako twardy punkt odniesienia.
+Pierwsza propozycja ma być dokładnie tym modelem, a pozostałe muszą należeć do tej samej marki
+i rodziny produktu. Nie zamieniaj iPhone'a na telefony z Androidem ani odwrotnie, chyba że
+użytkownik wprost poprosi o alternatywy innych marek. Budżet niższy od typowej ceny pokaż jako
+kompromis lub ryzyko, ale nie używaj go do cichej zmiany wskazanego produktu.
 Możesz rozważyć maksymalnie 10 kandydatów, ale zwróć tylko najlepsze propozycje z ceną,
 powodami podobieństwa, różnicami i kompromisem.
 Nie decyduj o cache, filtrach ani punktacji.
+change_intent zawsze ustaw na jedną z wartości: rerank, refetch albo new_product_research;
+nigdy nie zwracaj null.
 Zachowaj wcześniejsze wymagania, których użytkownik nie zmienił.
-Propozycje modeli mogą korzystać z ogólnej wiedzy o produktach, ale nie są ofertami.
+Propozycje modeli muszą należeć do rozpoznanej kategorii. Mogą korzystać z ogólnej wiedzy
+o produktach, ale nie są ofertami.
 Nie wymyślaj URL-i ani faktów o ofertach. source_url ustaw tylko, gdy URL podał użytkownik;
 w przeciwnym razie pozostaw null i wpisz unverified_product_suggestion do data_gaps."""
 
@@ -45,10 +61,15 @@ class ConversationService:
             ),
             response_model=ConversationOutput,
         )
+        reference_product = (
+            _infer_explicit_reference_product(message)
+            or output.reference_product
+            or current.reference_product
+        )
         requirements = output.requirements.model_copy(
             update={
                 "question_count": current.question_count,
-                "reference_product": output.reference_product or current.reference_product,
+                "reference_product": reference_product,
             }
         )
         question = output.question if output.missing_critical_information else None
@@ -67,8 +88,38 @@ class ConversationService:
             question,
             suggestions,
             output.change_intent,
-            output.reference_product or current.reference_product,
+            reference_product,
         )
+
+
+_IPHONE_MODEL = re.compile(
+    r"\biphone[\s-]*(\d{1,2})(?:[\s-]*(pro(?:[\s-]*max)?|plus|mini|e|s|c))?\b",
+    re.IGNORECASE,
+)
+
+
+def _infer_explicit_reference_product(message: str) -> ReferenceProduct | None:
+    match = _IPHONE_MODEL.search(message)
+    if match is None:
+        return None
+    generation, raw_variant = match.groups()
+    variant = ""
+    if raw_variant:
+        normalized_variant = " ".join(raw_variant.lower().replace("-", " ").split())
+        variant = {
+            "pro": " Pro",
+            "pro max": " Pro Max",
+            "plus": " Plus",
+            "mini": " Mini",
+            "e": "e",
+            "s": "s",
+            "c": "c",
+        }[normalized_variant]
+    return ReferenceProduct(
+        brand="Apple",
+        model=f"iPhone {generation}{variant}",
+        confidence=0.99,
+    )
 
 
 def classify_change(

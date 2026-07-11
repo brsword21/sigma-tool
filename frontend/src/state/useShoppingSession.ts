@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createSession, getRun, selectProduct, sendMessage } from '../api/client'
 import type { Candidate, Recommendation, RunResponse, SearchDirection } from '../api/types'
+import type { SessionHistoryResponse } from '../api/types'
 import { demoCandidates, demoRun, demoRunForCandidate } from './demo'
 import { terminalStatus } from './presentation'
 
@@ -160,6 +161,38 @@ export function useShoppingSession() {
     setPhase('selecting')
   }, [])
 
+  const reset = useCallback(() => {
+    activeRequest.current += 1
+    sessionId.current = null
+    lastOperation.current = null
+    setPhase('idle')
+    setMessages([])
+    setCandidates([])
+    setSelected(null)
+    setRun(null)
+    setError(null)
+    setDemoMode(false)
+    setBusy(false)
+  }, [])
+
+  const restoreHistory = useCallback((history: SessionHistoryResponse) => {
+    activeRequest.current += 1
+    sessionId.current = history.session.id
+    lastOperation.current = null
+    setMessages(history.messages.map((item) => ({
+      id: item.id,
+      role: item.role,
+      content: item.content,
+    })))
+    setCandidates([])
+    setSelected(null)
+    setRun(null)
+    setError(null)
+    setDemoMode(false)
+    setBusy(false)
+    setPhase(history.messages.length ? 'conversing' : 'idle')
+  }, [])
+
   return {
     phase,
     messages,
@@ -174,5 +207,7 @@ export function useShoppingSession() {
     choose,
     retry,
     useDemo,
+    reset,
+    restoreHistory,
   }
 }

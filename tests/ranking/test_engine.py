@@ -66,6 +66,23 @@ def test_exact_generation_is_verified_before_scoring() -> None:
     assert matches_exact_product(second_generation, product) is True
 
 
+def test_exact_product_rejects_accessories_and_description_only_mentions() -> None:
+    product = {"brand": "Apple", "model": "iPhone 15", "specifications": {}}
+    phone = listing(
+        "iphone", "2000", ListingCondition.VERY_GOOD, "Sprawny telefon, bateria 91%."
+    ).model_copy(update={"title": "Apple iPhone 15 128 GB czarny"})
+    case = listing(
+        "case", "50", ListingCondition.NEW, "Etui kompatybilne z Apple iPhone 15."
+    ).model_copy(update={"title": "Etui ochronne do Apple iPhone 15"})
+    unrelated = listing(
+        "unrelated", "1400", ListingCondition.VERY_GOOD, "Sprzedaję, bo kupiłem iPhone 15."
+    ).model_copy(update={"title": "Samsung Galaxy A54"})
+
+    assert matches_exact_product(phone, product) is True
+    assert matches_exact_product(case, product) is False
+    assert matches_exact_product(unrelated, product) is False
+
+
 def test_brief_parameters_lift_matching_listing_and_explanation() -> None:
     generic = (
         "Kompletne sprawne słuchawki z etui, ładowarką i możliwością wysyłki, bez widocznych wad."

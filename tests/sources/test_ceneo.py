@@ -67,6 +67,16 @@ async def test_ceneo_rejects_noise_mismatched_products_and_missing_prices() -> N
                         "title": "Sony WH-1000XM4",
                         "markdown": "Produkt chwilowo niedostępny",
                     },
+                    {
+                        "url": "https://www.ceneo.pl/333",
+                        "title": "Etui ochronne do Sony WH-1000XM4",
+                        "price": "19.99",
+                    },
+                    {
+                        "url": "https://www.ceneo.pl/444",
+                        "title": "Tactical Shield Cover For Sony WH-1000XM4 Black",
+                        "price": "29.99",
+                    },
                 ]
             },
         )

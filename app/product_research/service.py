@@ -7,7 +7,9 @@ from app.llm.schemas import ProductResearchOutput
 from app.repositories.protocols import ProductResearchRepository
 from app.services.ports import Clock, LLMClient
 
-PRODUCT_RESEARCH_PROMPT_V1 = """Przygotuj zwięzły brief zakupu używanych słuchawek.
+PRODUCT_RESEARCH_PROMPT_V1 = """Przygotuj zwięzły brief zakupu wskazanego produktu z rynku
+używanej elektroniki. Dopasuj parametry, typowe awarie i kontrolę przed zakupem do kategorii
+urządzenia; nie zakładaj, że produktem są słuchawki.
 Podawaj jako potwierdzone wyłącznie fakty poparte URL-ami z pola allowed_sources wejścia.
 Nie twórz nowych URL-i. Gdy źródeł brakuje, zwróć sources=[], obniż confidence i wpisz
 unverified_product_research do data_gaps. Możesz podać ogólne kontrole przed zakupem,

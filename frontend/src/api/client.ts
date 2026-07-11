@@ -1,4 +1,4 @@
-import type { MessageResponse, RunResponse, SearchDirection, SessionResponse } from './types'
+import type { HistoryListResponse, MessageResponse, RunResponse, SearchDirection, SessionHistoryResponse, SessionResponse } from './types'
 
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -7,18 +7,28 @@ export class ApiError extends Error {
   }
 }
 
+type AccessTokenProvider = () => Promise<string | null>
+
+let accessTokenProvider: AccessTokenProvider = async () => null
+
+export function setAccessTokenProvider(provider: AccessTokenProvider) {
+  accessTokenProvider = provider
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
   try {
+    const accessToken = await accessTokenProvider()
     response = await fetch(`/api${path}`, {
       ...init,
       headers: {
         'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...init?.headers,
       },
     })
   } catch {
-    throw new ApiError('Nie udało się połączyć z backendem Sigmy.', 0)
+    throw new ApiError('Nie udało się połączyć z backendem Picky.', 0)
   }
   if (!response.ok) {
     let message = response.status >= 500
@@ -57,3 +67,8 @@ export const getRun = (runId: string) => request<RunResponse>(`/runs/${runId}`)
 
 export const refreshRun = (runId: string) =>
   request<{ run_id: string; status: RunResponse['status'] }>(`/runs/${runId}/refresh`, { method: 'POST' })
+
+export const listHistory = () => request<HistoryListResponse>('/sessions/history')
+
+export const getSessionHistory = (sessionId: string) =>
+  request<SessionHistoryResponse>(`/sessions/${sessionId}/history`)

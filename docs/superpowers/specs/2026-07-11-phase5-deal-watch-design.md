@@ -2,7 +2,7 @@
 
 ## Understanding summary
 
-- Faza 5 ma pokazać, że Sigma potrafi cierpliwie obserwować rynek i wydać jedną
+- Faza 5 ma pokazać, że Picky potrafi cierpliwie obserwować rynek i wydać jedną
   audytowalną decyzję, zamiast tylko sortować bieżące ogłoszenia.
 - Funkcja pozostaje częścią demonstracyjnego backendu dla używanych słuchawek.
 - Użytkownik definiuje dokładny wariant, limit kosztu końcowego, minimalny stan i

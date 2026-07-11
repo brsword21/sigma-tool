@@ -21,7 +21,7 @@ class SupabaseProductRepository:
 
     async def upsert(self, product: dict[str, Any]) -> UUID:
         payload = {
-            "category": product.get("category", "headphones"),
+            "category": product.get("category", "electronics"),
             "brand": product["brand"],
             "model": product["model"],
             "canonical_name": product.get("canonical_name")

@@ -1,4 +1,4 @@
-# Raport zgodności projektu Sigma Shopping Agent z case'em Solidgate
+# Raport zgodności projektu Picky Shopping Agent z case'em Solidgate
 
 **Data analizy:** 11 lipca 2026  
 **Źródła:** `solidgate-case.pdf` (7 slajdów), bieżący kod i dokumentacja projektu  
@@ -8,11 +8,11 @@
 
 Projekt jest **dobrze dopasowany do rdzenia case'u**: scoutowania ofert, rozpoznawania właściwego wariantu i odrzucania pozornych okazji. Obecnie wymaga przede wszystkim doprecyzowania sposobu pokazania tej wartości w demo.
 
-Sigma pomaga wybrać produkt i konkretne używane oferty, ocenia wariant, jakość ogłoszenia, ryzyko i sprzedawcę. To jest prawidłowa interpretacja narzuconego przez organizatorów zadania: agent ma scoutować okazje i podejmować uzasadnioną decyzję, nie być zwykłą listą wyników. Case dodatkowo akcentuje **monitorowanie**, **pełny koszt zakupu**, **jedno istotne powiadomienie** i audyt uzasadnienia. Przygotowanie checkoutu lub zakup są wizją końcową, a nie warunkiem prezentacji - slajd 7 wprost wskazuje, że integracja PSP nie jest wymagana.
+Picky pomaga wybrać produkt i konkretne używane oferty, ocenia wariant, jakość ogłoszenia, ryzyko i sprzedawcę. To jest prawidłowa interpretacja narzuconego przez organizatorów zadania: agent ma scoutować okazje i podejmować uzasadnioną decyzję, nie być zwykłą listą wyników. Case dodatkowo akcentuje **monitorowanie**, **pełny koszt zakupu**, **jedno istotne powiadomienie** i audyt uzasadnienia. Przygotowanie checkoutu lub zakup są wizją końcową, a nie warunkiem prezentacji - slajd 7 wprost wskazuje, że integracja PSP nie jest wymagana.
 
 Najkrócej:
 
-> Sigma jest już agentem scoutującym oferty; warto domknąć demonstrację „deal hunter loop” przez pokazanie, dlaczego konkretna oferta jest lub nie jest okazją.
+> Picky jest już agentem scoutującym oferty; warto domknąć demonstrację „deal hunter loop” przez pokazanie, dlaczego konkretna oferta jest lub nie jest okazją.
 
 Ocena ogólna na podstawie obecnego repozytorium: **dobra zgodność z wymaganym rdzeniem, około 75% zakresu hackathonowego**. To nie jest miara jakości kodu. Kod jest w dobrym stanie lokalnym; wynik opisuje pokrycie funkcji i narracji wskazanych w prezentacji.
 
@@ -37,7 +37,7 @@ Szczególnie ważna jest sugestia ze slajdu 6: **„mock the merchants, real the
 
 ## 3. Macierz zgodności
 
-| Element case'u | Stan w Sigma | Ocena | Dowód / komentarz |
+| Element case'u | Stan w Picky | Ocena | Dowód / komentarz |
 |---|---|---:|---|
 | Brief w naturalnym języku | Działa dla potrzeby i produktu referencyjnego; do 3 pytań | **mocne** | `ConversationService`, `Requirements`, dwa happy pathy API |
 | Wąski, czytelny zakres | Jedna kategoria: używane słuchawki | **mocne** | zgodne z zasadą „scope ruthlessly” |

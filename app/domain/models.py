@@ -65,7 +65,7 @@ class ReferenceProduct(DomainModel):
 
 
 class Requirements(DomainModel):
-    category: str = "headphones"
+    category: str = "electronics"
     budget_max: Decimal | None = Field(default=None, gt=0)
     currency: Currency = Currency.PLN
     required_variants: list[str] = Field(default_factory=list)

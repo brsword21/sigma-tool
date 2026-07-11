@@ -18,7 +18,7 @@
   </script>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>window.SIGMA_CONFIG = window.SIGMA_CONFIG || {};</script>
+  <script>window.PICKY_CONFIG = window.PICKY_CONFIG || {};</script>
   <script src="./config.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
@@ -428,7 +428,7 @@
       accountEmail: $('#accountEmail'), historyList: $('#historyList')
     };
 
-    const config = window.SIGMA_CONFIG || {};
+    const config = window.PICKY_CONFIG || {};
     const apiBaseUrl = (config.apiBaseUrl || 'http://localhost:8000').replace(/\/$/, '');
 
     const money = value => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(value);

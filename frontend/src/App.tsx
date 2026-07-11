@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Candidate, SearchDirection } from './api/types'
+import { useAuth } from './auth/AuthProvider'
+import { AccountControls } from './components/AccountControls'
+import { HistoryDrawer } from './components/HistoryDrawer'
 import { dateTime, fieldLabel, listingFor, money, scoreLabel, sourceName } from './state/presentation'
 import { useShoppingSession } from './state/useShoppingSession'
 
 const examplePrompts = [
-  'Coś jak AirPods Pro, ale taniej',
-  'Dobre słuchawki z ANC do 500 zł',
+  'Samsung S25 w dobrym stanie do 2200 zł',
+  'Laptop do pracy z baterią powyżej 80%',
 ]
 
 const directions: Array<{ value: SearchDirection; label: string }> = [
@@ -24,13 +27,14 @@ const humanCondition: Record<string, string> = {
   unknown: 'brak danych',
 }
 
-function HeadphoneMark({ compact = false }: { compact?: boolean }) {
+function ElectronicsMark({ compact = false }: { compact?: boolean }) {
   return (
     <svg className={compact ? 'mark mark--compact' : 'mark'} viewBox="0 0 96 96" aria-hidden="true">
-      <path d="M22 51V43c0-15 11-27 26-27s26 12 26 27v8" />
-      <rect x="16" y="48" width="17" height="30" rx="8" />
-      <rect x="63" y="48" width="17" height="30" rx="8" />
-      <path d="M33 69c4 7 10 10 18 10" />
+      <rect x="18" y="18" width="35" height="56" rx="7" />
+      <path d="M31 65h9" />
+      <path d="M62 33h9a7 7 0 0 1 7 7v31" />
+      <path d="M58 71h24" />
+      <circle cx="68" cy="23" r="7" />
     </svg>
   )
 }
@@ -45,7 +49,9 @@ function ProductCard({ candidate, direction, onChoose, busy }: {
     <article className="product-card">
       <div className="product-card__visual">
         <span className="product-card__brand">{candidate.brand}</span>
-        <HeadphoneMark />
+        {candidate.image_url
+          ? <img src={candidate.image_url} alt={`${candidate.brand} ${candidate.model}`} />
+          : <ElectronicsMark />}
         <span className="confidence">pewność {Math.round(candidate.confidence * 100)}%</span>
       </div>
       <div className="product-card__content">
@@ -89,9 +95,22 @@ function ScoreRow({ label, value }: { label: string; value: unknown }) {
 
 function App() {
   const shopping = useShoppingSession()
+  const auth = useAuth()
   const [draft, setDraft] = useState('')
   const [direction, setDirection] = useState<SearchDirection>('best_value')
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const previousUserId = useRef<string | null>(auth.user?.id ?? null)
   const visibleMessages = useMemo(() => shopping.messages.slice(-5), [shopping.messages])
+
+  useEffect(() => {
+    const nextUserId = auth.user?.id ?? null
+    if (previousUserId.current !== nextUserId) {
+      shopping.reset()
+      setDraft('')
+      setHistoryOpen(false)
+      previousUserId.current = nextUserId
+    }
+  }, [auth.user?.id, shopping.reset])
 
   const send = async () => {
     const text = draft.trim()
@@ -103,13 +122,16 @@ function App() {
   return (
     <div className={`app phase-${shopping.phase}`}>
       <header className="topbar">
-        <a className="brand" href="#top" aria-label="Sigma — początek">
-          <span className="brand__symbol">Σ</span>
-          <span>Sigma</span>
+        <a className="brand" href="#top" aria-label="Picky — początek">
+          <span className="brand__symbol">P</span>
+          <span>Picky</span>
         </a>
-        <div className="topbar__status">
-          <span className="status-dot" />
-          {shopping.demoMode ? 'dane demonstracyjne' : 'agent gotowy'}
+        <div className="topbar__right">
+          <div className="topbar__status">
+            <span className="status-dot" />
+            {shopping.demoMode ? 'dane demonstracyjne' : 'agent gotowy'}
+          </div>
+          <AccountControls onOpenHistory={() => setHistoryOpen(true)} />
         </div>
       </header>
 
@@ -121,10 +143,10 @@ function App() {
       )}
 
       <main id="top" className="workspace">
-        <section className="conversation" aria-label="Rozmowa z Sigmą">
+        <section className="conversation" aria-label="Rozmowa z Picky">
           <div className="conversation__intro">
             <p className="eyebrow">Agent do używanej elektroniki</p>
-            <h1>Znajdź słuchawki,<br /><em>które warto kupić.</em></h1>
+            <h1>Znajdź elektronikę,<br /><em>którą warto kupić.</em></h1>
             <p>Powiedz, czego potrzebujesz albo co Ci się podoba. Zamiast setek wyników dostaniesz kilka decyzji z dowodami.</p>
           </div>
 
@@ -132,7 +154,7 @@ function App() {
             <div className="messages" aria-live="polite">
               {visibleMessages.map((item) => (
                 <div className={`message message--${item.role}`} key={item.id}>
-                  <span>{item.role === 'assistant' ? 'Sigma' : 'Ty'}</span>
+                  <span>{item.role === 'assistant' ? 'Picky' : 'Ty'}</span>
                   <p>{item.content}</p>
                 </div>
               ))}
@@ -165,18 +187,18 @@ function App() {
                 maxLength={2000}
                 placeholder={shopping.phase === 'results' ? 'Zmień priorytet, np. ważniejsza jest gwarancja…' : 'Opisz potrzebę albo podaj model…'}
                 disabled={shopping.busy}
-                aria-label="Wiadomość do Sigmy"
+                aria-label="Wiadomość do Picky"
               />
               <button className="send" type="button" disabled={!draft.trim() || shopping.busy} onClick={() => void send()} aria-label="Wyślij wiadomość">↑</button>
             </div>
-            <p className="composer-note">Sigma pokazuje źródła i jawnie oznacza braki danych.</p>
+            <p className="composer-note">Picky pokazuje źródła i jawnie oznacza braki danych.</p>
           </div>
         </section>
 
         <section className="decision" aria-label="Wyniki wyszukiwania">
           {shopping.phase === 'idle' || shopping.phase === 'conversing' ? (
             <div className="decision-empty">
-              <div className="orb"><HeadphoneMark /></div>
+              <div className="orb"><ElectronicsMark /></div>
               <p>Jedna potrzeba.<br />Kilka sprawdzonych kierunków.<br /><strong>Jedna decyzja.</strong></p>
               <div className="evidence-note"><span>01</span><p>Najpierw rozumiemy produkt. Pełne wyszukiwanie rusza dopiero po Twoim wyborze.</p></div>
             </div>
@@ -201,7 +223,7 @@ function App() {
 
           {shopping.phase === 'searching' && (
             <div className="search-state" aria-live="polite">
-              <div className="search-rings"><HeadphoneMark /></div>
+              <div className="search-rings"><ElectronicsMark /></div>
               <p className="eyebrow">Etap 2 · konkretne oferty</p>
               <h2>Sprawdzam wariant,<br />ryzyko i sprzedawcę.</h2>
               <ul>
@@ -273,7 +295,7 @@ function App() {
                         <div className="trust-strip">
                           <div><span>Gwarancja</span><strong>{fieldLabel(recommendation.field_availability.warranty)}</strong></div>
                           <div><span>Zwrot</span><strong>{fieldLabel(recommendation.field_availability.returns)}</strong></div>
-                          <div><span>Bateria</span><strong>{fieldLabel(recommendation.field_availability.battery)}</strong></div>
+                          <div><span>Bateria / zasilanie</span><strong>{fieldLabel(recommendation.field_availability.battery)}</strong></div>
                           <div><span>Pobrano</span><strong>{dateTime(recommendation.retrieved_at ?? listing.retrieved_at)}</strong></div>
                         </div>
 
@@ -292,6 +314,14 @@ function App() {
           )}
         </section>
       </main>
+      {auth.status === 'signed-in' && (
+        <HistoryDrawer
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          onNewChat={() => { shopping.reset(); setDraft('') }}
+          onRestore={(history) => { shopping.restoreHistory(history); setDraft('') }}
+        />
+      )}
     </div>
   )
 }

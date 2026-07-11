@@ -1,4 +1,4 @@
-# Sigma React Frontend Integration Design
+# Picky React Frontend Integration Design
 
 ## Understanding summary
 
@@ -60,7 +60,7 @@ Authentication and history appear only as stable header hooks. Image attachment 
 |---|---|---|
 | React + Vite + TypeScript | Static HTML, server-rendered frontend | Maintains demo velocity with clearer state and API contracts. |
 | Separate dev servers with a Vite proxy | Hard-coded backend URL, FastAPI static hosting | Keeps backend unchanged and avoids browser CORS complexity. |
-| Root `DESIGN.md` is authoritative | Preserve prototype palette and name | Explicit user direction and consistent Sigma product identity. |
+| Root `DESIGN.md` is authoritative | Preserve prototype palette and name | Explicit user direction and consistent Picky product identity. |
 | Preserve stage interactions | Replace prototype with a conventional results page | The stage is the prototype's strongest demo behavior. |
 | Explicit demo fallback | Silent fallback | Maintains trust and avoids presenting synthetic data as live. |
 | Defer image upload | Add a speculative endpoint | The user explicitly requested no image upload yet. |

@@ -1,4 +1,4 @@
-# Sigma — plan gotowości demo na ostatnie 2 godziny
+# Picky — plan gotowości demo na ostatnie 2 godziny
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -172,7 +172,7 @@ Expected: test klienta API i testy prezentacji przechodzą.
 - Consumes: `useShoppingSession()`.
 - Produces: dostępny klawiaturą flow od promptu do linku sprzedawcy.
 
-- [ ] **Step 1:** W `App.tsx` wyrenderować jeden semantyczny układ: nagłówek Sigma, historię rozmowy, composer, fazę wyboru produktu, stan wyszukiwania i ranking ofert. Nie tworzyć teraz osobnego systemu routingu ani biblioteki komponentów.
+- [ ] **Step 1:** W `App.tsx` wyrenderować jeden semantyczny układ: nagłówek Picky, historię rozmowy, composer, fazę wyboru produktu, stan wyszukiwania i ranking ofert. Nie tworzyć teraz osobnego systemu routingu ani biblioteki komponentów.
 
 - [ ] **Step 2:** Composer ma zachować tekst po błędzie, blokować wielokrotne wysłanie w trakcie żądania i umożliwiać wysłanie klawiszem Enter. Załącznik obrazu pozostaje widoczny, ale `disabled` z tekstem „Zdjęcia dodamy po demo”.
 

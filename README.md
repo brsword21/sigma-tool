@@ -1,11 +1,11 @@
-# Sigma Shopping Agent
+# Picky Shopping Agent
 
 Backend demonstracyjnego agenta zakupowego dla używanych słuchawek. Przyjmuje potrzebę
 albo produkt referencyjny, proponuje 4–6 kierunków, a po wyborze pobiera oferty i osobno
 pokazuje dopasowanie produktu, jakość oferty oraz wiarygodność sprzedawcy.
 
 Repozytorium zawiera również frontend React w katalogu `frontend`. Zachowuje on
-konwersacyjny charakter Sigmy, pokazuje kandydatów jako talię decyzji i podłącza pełny
+konwersacyjny charakter Picky, pokazuje kandydatów jako talię decyzji i podłącza pełny
 przepływ backendu aż do rankingu konkretnych ofert.
 
 ## Uruchomienie
@@ -28,6 +28,7 @@ W drugim terminalu uruchom frontend:
 ```bash
 cd frontend
 npm install
+cp .env.example .env.local  # jeśli masz lokalny plik przykładowy
 npm run dev
 ```
 
@@ -48,20 +49,28 @@ Przed pierwszym uruchomieniem zastosuj kolejno:
 Można wkleić je do SQL Editora developerskiego projektu Supabase albo, dla połączonego
 lokalnego projektu Supabase CLI, wykonać `supabase db push`.
 
-## Opcjonalne logowanie i historia w prototypie statycznym
+## Logowanie Magic Link i historia rozmów
 
-Starszy interfejs w `prototype/znajdz` obsługuje logowanie magic linkiem przez Supabase
-Auth. Gość może nadal używać aplikacji bez konta, ale tylko rozmowy rozpoczęte po
-zalogowaniu są przypisywane do użytkownika i dostępne w historii. Nowy frontend React
-skupia się na wymaganym flow zakupowym; logowanie nie jest częścią jego zakresu demo.
+Frontend React obsługuje logowanie magic linkiem przez Supabase Auth. Gość może nadal
+używać aplikacji bez konta, ale tylko rozmowy rozpoczęte po zalogowaniu są przypisywane
+do użytkownika i dostępne w historii. Rozmowa gościa nie jest przenoszona do konta po
+zalogowaniu.
+
+Utwórz `frontend/.env.local` z publicznymi wartościami projektu:
+
+```bash
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
 
 W Supabase Dashboard otwórz **Authentication → URL Configuration**, ustaw adres strony
-jako Site URL i dodaj lokalny oraz produkcyjny adres do Redirect URLs. Magic link nie
-wróci pod adres, którego nie ma na tej liście.
+produkcyjnej jako Site URL i dodaj `http://localhost:5173` oraz produkcyjny adres do
+Redirect URLs. Magic link nie wróci pod adres, którego nie ma na tej liście.
 
 Backend weryfikuje access token po stronie Supabase i wymaga zastosowania migracji `003`.
 Klucz `SUPABASE_SERVICE_ROLE_KEY` pozostaje wyłącznie w `.env` backendu. Przeglądarka używa
-osobnego publicznego klucza publishable/anon skonfigurowanego zgodnie z instrukcją prototypu.
+osobnego publicznego klucza publishable/anon. Zastosuj migrację
+`supabase/migrations/003_auth_chat_history.sql` przed testowaniem historii.
 
 ## Testy
 

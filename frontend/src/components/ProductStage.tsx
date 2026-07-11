@@ -18,7 +18,7 @@ export function ProductStage({ candidates, selectedIndex, direction, onSelect, o
   if (!selected) return <div className="empty-stage"><p>Nie ma więcej propozycji.</p><span>Zmień opis potrzeby, aby rozpocząć nowe wyszukiwanie.</span></div>
   return (
     <section className="focus-mode" aria-label="Wybór produktu">
-      <div className="focus-meta"><span>{selectedIndex + 1} z {candidates.length}</span><p>Wybierz model, a Sigma sprawdzi konkretne oferty.</p></div>
+      <div className="focus-meta"><span>{selectedIndex + 1} z {candidates.length}</span><p>Wybierz model, a Picky sprawdzi konkretne oferty.</p></div>
       <div className="deck">
         {candidates.map((candidate, index) => (
           <button key={candidate.product_id} className={`deck-peek ${index === selectedIndex ? 'is-active' : ''}`} style={{ '--offset': index - selectedIndex } as React.CSSProperties} onClick={() => onSelect(index)} aria-label={`Wybierz ${candidate.brand} ${candidate.model}`} tabIndex={index === selectedIndex ? -1 : 0}>

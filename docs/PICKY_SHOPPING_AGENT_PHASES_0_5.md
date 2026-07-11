@@ -1,4 +1,4 @@
-# Sigma Shopping Agent — kompletny opis projektu od fazy 0 do fazy 5
+# Picky Shopping Agent — kompletny opis projektu od fazy 0 do fazy 5
 
 **Stan dokumentu:** 11 lipca 2026  
 **Zakres:** backend demonstracyjnego agenta zakupowego dla używanych słuchawek  
@@ -6,7 +6,7 @@
 
 ## 1. Streszczenie projektu
 
-Sigma Shopping Agent jest backendem agenta, który pomaga osobie bez specjalistycznej
+Picky Shopping Agent jest backendem agenta, który pomaga osobie bez specjalistycznej
 wiedzy przejść od krótkiego opisu potrzeby do konkretnej, uzasadnionej decyzji zakupowej
 na rynku używanej elektroniki. Demonstracyjna wersja skupia się na jednej kategorii:
 używanych słuchawkach.
@@ -44,7 +44,7 @@ Osoba kupująca musi zwykle samodzielnie:
 - rozpoznać brak danych, sygnały oszustwa i pozorne okazje;
 - podjąć decyzję mimo niepewności.
 
-Sigma redukuje ten wysiłek. Zamiast wymagać rozbudowanego formularza filtrów, przyjmuje
+Picky redukuje ten wysiłek. Zamiast wymagać rozbudowanego formularza filtrów, przyjmuje
 naturalną wypowiedź i prowadzi użytkownika przez ograniczony, zrozumiały proces.
 
 ## 3. Użytkownik docelowy i obietnica wartości
@@ -481,7 +481,7 @@ audytowalnych decyzji.
 6. Wysyła dokładnie jeden alert dla pełnego dopasowania.
 7. Ponowienie symulacji nie tworzy drugiego alertu.
 
-Taki pokaz uwidacznia, że Sigma nie jest prostą porównywarką. Potrafi zrozumieć brief,
+Taki pokaz uwidacznia, że Picky nie jest prostą porównywarką. Potrafi zrozumieć brief,
 pilnować dokładnego wariantu, zachować niepewność, policzyć rzeczywisty koszt i
 powstrzymać się od pozytywnej decyzji, gdy dowody są niewystarczające.
 
@@ -513,6 +513,6 @@ rozdzielenie roli modelu językowego od decyzji wykonawczych: LLM pomaga zrozumi
 użytkownika, ale wariant, cache, filtry, wynik, koszt końcowy i alert pozostają pod
 kontrolą jawnego kodu.
 
-W efekcie Sigma potrafi nie tylko znaleźć interesującą ofertę, lecz także wyjaśnić,
+W efekcie Picky potrafi nie tylko znaleźć interesującą ofertę, lecz także wyjaśnić,
 dlaczego warto ją rozważyć, czego o niej nie wiadomo i dlaczego pozornie tańsze
 alternatywy zostały odrzucone.

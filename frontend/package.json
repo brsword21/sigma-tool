@@ -1,5 +1,5 @@
 {
-  "name": "sigma-frontend",
+  "name": "picky-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@rolldown/binding-darwin-arm64": "^1.1.5",
+    "@supabase/supabase-js": "^2.110.2",
     "@vitejs/plugin-react": "latest",
     "react": "latest",
     "react-dom": "latest",

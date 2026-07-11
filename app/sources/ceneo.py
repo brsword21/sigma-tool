@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.domain.models import NewPriceBenchmark, SearchQuery
+from app.product_matching import is_accessory_title
 from app.sources.firecrawl import SourceError, _records
 
 _PRICE_WITH_CURRENCY_RE = re.compile(
@@ -76,7 +77,12 @@ def _benchmark(
     metadata = record.get("metadata") if isinstance(record.get("metadata"), Mapping) else {}
     url = str(record.get("url") or metadata.get("sourceURL") or metadata.get("url") or "")
     title = str(record.get("title") or metadata.get("title") or metadata.get("og:title") or "")
-    if not _is_product_url(url) or not title or not _matches_model(title, model):
+    if (
+        not _is_product_url(url)
+        or not title
+        or is_accessory_title(title)
+        or not _matches_model(title, model)
+    ):
         return None
     price = _record_price(record, metadata)
     if price is None or price <= 0:

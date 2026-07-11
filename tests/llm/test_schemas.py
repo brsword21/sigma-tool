@@ -50,3 +50,23 @@ def test_clarifying_question_requires_question_and_no_suggestions() -> None:
         suggestions=[],
     )
     assert valid.question == "Jaki masz budżet?"
+
+
+def test_brand_without_model_is_not_a_reference_product() -> None:
+    output = ConversationOutput.model_validate(
+        {
+            "requirements": {
+                "category": "headphones",
+                "reference_product": {"brand": "Sony", "model": None},
+            },
+            "missing_critical_information": True,
+            "question": "Jaki jest Twój budżet na słuchawki?",
+            "suggestions": [],
+            "reference_product": {"brand": "Sony", "model": None},
+            "change_intent": None,
+        }
+    )
+
+    assert output.reference_product is None
+    assert output.requirements.reference_product is None
+    assert output.change_intent.value == "rerank"

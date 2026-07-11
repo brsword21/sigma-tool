@@ -10,6 +10,7 @@ from app.domain.models import (
     Requirements,
     ScoreBreakdown,
 )
+from app.product_matching import is_accessory_title
 from app.ranking.risk import risk_penalty
 
 _CONDITION_POINTS = {
@@ -46,15 +47,15 @@ def matches_exact_product(listing: NormalizedListing, product: dict[str, Any]) -
     expected = str(specifications.get("exact_variant") or product.get("model") or "").strip()
     if not expected:
         return False
-    observed = " ".join(
-        (
-            listing.title,
-            listing.exact_variant or "",
-            listing.description or "",
-            " ".join(f"{key} {value}" for key, value in listing.attributes.items()),
-        )
+    if is_accessory_title(listing.title):
+        return False
+    canonical_expected = _canonical_variant(expected)
+    canonical_title = _canonical_variant(listing.title)
+    canonical_declared_variant = _canonical_variant(listing.exact_variant or "")
+    return (
+        canonical_expected in canonical_title
+        or canonical_expected in canonical_declared_variant
     )
-    return _canonical_variant(expected) in _canonical_variant(observed)
 
 
 def _canonical_variant(value: str) -> str:
@@ -212,7 +213,7 @@ def _build_explanation(
     parts = list(strengths[:2])
     if matched_brief:
         parts.append(
-            "spełnia kluczowe dla tych słuchawek parametry: "
+            "spełnia kluczowe dla tego urządzenia parametry: "
             + ", ".join(matched_brief[:3])
         )
     if risk:

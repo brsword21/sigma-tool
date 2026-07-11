@@ -1,4 +1,4 @@
-# Sigma — scenariusz prezentacji
+# Picky — scenariusz prezentacji
 
 ## Przygotowanie
 

@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sigma-shopping-agent"
+name = "picky-shopping-agent"
 version = "0.1.0"
 description = "Backend MVP for a second-hand electronics shopping agent"
 requires-python = ">=3.12,<3.13"

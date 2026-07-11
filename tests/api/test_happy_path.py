@@ -88,7 +88,7 @@ def test_full_fetch_is_logged_only_after_product_selection(
 ) -> None:
     services = build_services()
     app = create_app(Settings(_env_file=None, environment="test"), services=services)
-    caplog.set_level(logging.INFO, logger="sigma.shopping_agent")
+    caplog.set_level(logging.INFO, logger="picky.shopping_agent")
     with TestClient(app) as client:
         session_id = client.post("/sessions").json()["session_id"]
         discovery = client.post(

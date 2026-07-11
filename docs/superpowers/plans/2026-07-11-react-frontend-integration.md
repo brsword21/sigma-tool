@@ -1,8 +1,8 @@
-# Sigma React Frontend Integration Implementation Plan
+# Picky React Frontend Integration Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a React/Vite frontend that preserves the Sigma prototype interactions and completes the real FastAPI shopping flow from conversation to merchant offer.
+**Goal:** Build a React/Vite frontend that preserves the Picky prototype interactions and completes the real FastAPI shopping flow from conversation to merchant offer.
 
 **Architecture:** A standalone TypeScript frontend owns presentation state and calls FastAPI through a Vite `/api` proxy. A typed API module isolates transport while focused React components render conversation, product selection, search progress, and ranked offers.
 
@@ -59,7 +59,7 @@
 - [ ] Add an explicitly labeled demo dataset used only after the user chooses demo mode.
 - [ ] Test money, status, score, and missing-data presentation helpers.
 
-### Task 3: Sigma interface and preserved demo interactions
+### Task 3: Picky interface and preserved demo interactions
 
 **Files:**
 - Create: `frontend/src/App.tsx`
@@ -93,7 +93,7 @@
 
 **Interfaces:**
 - Consumes: semantic class names from Task 3.
-- Produces: the complete responsive Sigma visual system.
+- Produces: the complete responsive Picky visual system.
 
 - [ ] Encode the exact root `DESIGN.md` color, spacing, radius, shadow, and typography tokens.
 - [ ] Implement a desktop conversation/stage composition and a single-column mobile flow.

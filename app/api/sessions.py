@@ -80,14 +80,13 @@ async def add_message(
             "cache_only": True,
         }
         run_id = await services.runs.create(session_id, product_id, query)
-        await services.sessions.update(
-            session_id,
-            {
-                "stage": ConversationStage.SEARCHING.value,
-                "requirements": result.requirements.model_dump(mode="json"),
-                "message_summary": payload.message,
-            },
-        )
+        changes = {
+            "stage": ConversationStage.SEARCHING.value,
+            "requirements": result.requirements.model_dump(mode="json"),
+        }
+        if not session.get("message_summary"):
+            changes["message_summary"] = payload.message
+        await services.sessions.update(session_id, changes)
         background_tasks.add_task(
             services.orchestrator.run,
             run_id,
@@ -133,14 +132,13 @@ async def add_message(
         candidate["product_id"] = str(product_id)
         candidate["estimated_price"] = suggestion.estimated_price
         candidates.append(candidate)
-    await services.sessions.update(
-        session_id,
-        {
-            "stage": stage.value,
-            "requirements": result.requirements.model_dump(mode="json"),
-            "message_summary": payload.message,
-        },
-    )
+    changes = {
+        "stage": stage.value,
+        "requirements": result.requirements.model_dump(mode="json"),
+    }
+    if not session.get("message_summary"):
+        changes["message_summary"] = payload.message
+    await services.sessions.update(session_id, changes)
     response = {
         "session_id": str(session_id),
         "stage": stage.value,

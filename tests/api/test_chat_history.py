@@ -51,6 +51,30 @@ def test_guest_conversation_is_not_added_to_account_history() -> None:
     assert history.json()["sessions"] == []
 
 
+def test_history_keeps_the_first_message_as_the_conversation_title() -> None:
+    user = AuthenticatedUser(id=uuid4(), email="ania@example.com")
+    services = build_services(users_by_token={"user-token": user})
+    app = create_app(Settings(_env_file=None, environment="test"), services=services)
+    headers = {"Authorization": "Bearer user-token"}
+
+    with TestClient(app) as client:
+        session_id = client.post("/sessions", headers=headers).json()["session_id"]
+        client.post(
+            f"/sessions/{session_id}/messages",
+            headers=headers,
+            json={"message": "Szukam słuchawek z ANC"},
+        )
+        client.post(
+            f"/sessions/{session_id}/messages",
+            headers=headers,
+            json={"message": "Gwarancja jest ważniejsza niż cena"},
+        )
+        history = client.get("/sessions/history", headers=headers)
+
+    assert history.status_code == 200
+    assert history.json()["sessions"][0]["message_summary"] == "Szukam słuchawek z ANC"
+
+
 def test_other_user_cannot_read_or_continue_owned_session() -> None:
     owner = AuthenticatedUser(id=uuid4(), email="owner@example.com")
     intruder = AuthenticatedUser(id=uuid4(), email="intruder@example.com")

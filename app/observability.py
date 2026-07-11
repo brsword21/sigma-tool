@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Any
 
-logger = logging.getLogger("sigma.shopping_agent")
+logger = logging.getLogger("picky.shopping_agent")
 
 
 def log_event(event: str, **fields: Any) -> None:

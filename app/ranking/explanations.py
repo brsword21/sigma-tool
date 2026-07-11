@@ -4,7 +4,8 @@ from app.domain.models import RankedListing
 from app.llm.schemas import RecommendationExplanationsOutput
 from app.services.ports import LLMClient
 
-EXPLANATION_PROMPT_V1 = """Formułuj krótkie polskie wyjaśnienia rankingu używanych słuchawek.
+EXPLANATION_PROMPT_V1 = """Formułuj krótkie polskie wyjaśnienia rankingu ofert używanej
+elektroniki. Odnoś się do rodzaju urządzenia wynikającego z danych, bez zakładania kategorii.
 Używaj wyłącznie faktów obecnych w przekazanych danych. Nie zmieniaj punktacji ani kolejności.
 Dla każdej oferty zwróć maksymalnie trzy zalety i jedno ryzyko. Brak danych nazwij wprost."""
 

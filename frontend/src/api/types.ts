@@ -23,6 +23,32 @@ export interface SessionResponse {
   stage: 'discovery'
 }
 
+export interface HistorySession {
+  id: string
+  user_id?: string | null
+  message_summary?: string | null
+  stage?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface StoredMessage {
+  id: string
+  session_id: string
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
+export interface HistoryListResponse {
+  sessions: HistorySession[]
+}
+
+export interface SessionHistoryResponse {
+  session: HistorySession
+  messages: StoredMessage[]
+}
+
 export interface MessageResponse {
   session_id: string
   stage: 'discovery' | 'product_selection' | 'searching'

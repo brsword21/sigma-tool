@@ -12,7 +12,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "Sigma Shopping Agent"
+    app_name: str = "Picky Shopping Agent"
     environment: str = "development"
     host: str = "0.0.0.0"
     port: int = Field(default=8000, ge=1, le=65535)

@@ -84,7 +84,7 @@
 - Modify: `prototype/znajdz/README.md`
 
 **Interfaces:**
-- `window.SIGMA_CONFIG` provides `supabaseUrl`, `supabasePublishableKey`, and `apiBaseUrl`.
+- `window.PICKY_CONFIG` provides `supabaseUrl`, `supabasePublishableKey`, and `apiBaseUrl`.
 - The auth modal uses `signInWithOtp({ email, options: { emailRedirectTo } })`.
 - Authenticated requests use `Authorization: Bearer <access_token>`.
 

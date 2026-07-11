@@ -10,8 +10,10 @@ from app.llm.schemas import ConversationOutput, ProductSuggestion
 class MockLLM:
     def __init__(self, output: ConversationOutput) -> None:
         self.output = output
+        self.calls: list[dict[str, object]] = []
 
     async def structured_response(self, **kwargs: object) -> ConversationOutput:
+        self.calls.append(kwargs)
         return self.output
 
 
@@ -43,6 +45,26 @@ async def test_ready_conversation_returns_four_models() -> None:
     result = await service.handle_message("ANC do 500", Requirements())
     assert len(result.suggestions) == 4
     assert result.question is None
+
+
+async def test_conversation_starts_neutral_and_infers_electronics_category() -> None:
+    output = ConversationOutput(
+        requirements=Requirements(category="smartphones"),
+        missing_critical_information=True,
+        question="Jaki jest Twój maksymalny budżet na telefon?",
+        suggestions=[],
+    )
+    llm = MockLLM(output)
+
+    result = await ConversationService(llm).handle_message(
+        "Szukam Samsung S25", Requirements()
+    )
+
+    assert Requirements().category == "electronics"
+    assert result.requirements.category == "smartphones"
+    assert result.question == "Jaki jest Twój maksymalny budżet na telefon?"
+    assert "używanej elektroniki" in str(llm.calls[0]["system_prompt"])
+    assert "słuchawek" not in str(llm.calls[0]["system_prompt"])
 
 
 async def test_fourth_question_is_suppressed_and_requires_suggestions() -> None:

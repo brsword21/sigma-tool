@@ -1,12 +1,12 @@
-# Sigma — UI Design Direction
+# Picky — UI Design Direction
 
 ## 1. Cel dokumentu
 
 Ten dokument opisuje wizualny charakter, typografię, hierarchię interfejsu i zasady
-projektowania aplikacji Sigma. Jest wspólnym punktem odniesienia dla designu oraz
+projektowania aplikacji Picky. Jest wspólnym punktem odniesienia dla designu oraz
 implementacji frontendu.
 
-Sigma pomaga wybrać używaną elektronikę: od krótkiego opisu potrzeby, przez odkrywanie
+Picky pomaga wybrać używaną elektronikę: od krótkiego opisu potrzeby, przez odkrywanie
 pasujących modeli, aż po ocenę konkretnych ofert i sprzedawców. Interfejs łączy dwa
 znane modele interakcji:
 
@@ -14,11 +14,11 @@ znane modele interakcji:
 - **Tinder:** jedna decyzja naraz, duże karty i szybkie porównywanie propozycji.
 
 Nie kopiujemy wyglądu żadnego z tych produktów. Łączymy ich sposób prowadzenia
-użytkownika w niezależny język wizualny Sigmy.
+użytkownika w niezależny język wizualny Picky.
 
 ## 2. Charakter produktu
 
-Sigma ma sprawiać wrażenie:
+Picky ma sprawiać wrażenie:
 
 - **czystej** — każdy element ma jedno zadanie;
 - **spokojnej** — aplikacja redukuje stres związany z kosztowną decyzją;
@@ -35,7 +35,7 @@ typografia, zdecydowany niebieski i płynna zmiana trybu z rozmowy na wybór.
 
 ### Conversation first
 
-Rozmowa jest domyślną osią aplikacji. Użytkownik zaczyna od naturalnego zdania, a Sigma
+Rozmowa jest domyślną osią aplikacji. Użytkownik zaczyna od naturalnego zdania, a Picky
 odpowiada krótko i pokazuje tylko informacje potrzebne do następnej decyzji.
 
 Po zrozumieniu potrzeby interfejs płynnie przechodzi do **focus mode**: centralnej talii
@@ -163,7 +163,7 @@ wpisywania. Nie pokazujemy od razu filtrów, kategorii ani panelu parametrów.
 
 ```text
 ┌──────────────────────────────────────────────┐
-│ Sigma                                    ••• │
+│ Picky                                    ••• │
 │                                              │
 │   Znajdź elektronikę, którą warto kupić.     │
 │   [ Coś jak AirPods Pro, ale taniej…     ↑ ] │
@@ -174,7 +174,7 @@ wpisywania. Nie pokazujemy od razu filtrów, kategorii ani panelu parametrów.
 ```
 
 Wiadomości nie są zamykane w ciężkich dymkach. Wypowiedź użytkownika może mieć lekkie
-niebieskie tło, natomiast odpowiedź Sigmy leży bezpośrednio na białym płótnie. Awatar
+niebieskie tło, natomiast odpowiedź Picky leży bezpośrednio na białym płótnie. Awatar
 asystenta jest opcjonalny; nazwa i rytm treści wystarczają do rozpoznania autora.
 
 ### 8.2. Focus mode — wybór produktu
@@ -214,14 +214,14 @@ ryzyka wyłącznie w tooltipach.
 
 ### Komponenty nawigacyjne
 
-- górny pasek z nazwą Sigma, historią i menu;
+- górny pasek z nazwą Picky, historią i menu;
 - zwijane podsumowanie aktywnych preferencji;
 - wskaźnik etapu oparty na nazwach, nie abstrakcyjnych numerach.
 
 ### Komponenty konwersacyjne
 
 - wiadomość użytkownika;
-- odpowiedź Sigmy;
+- odpowiedź Picky;
 - composer z autosize, akcją wysłania i stanem pracy;
 - szybkie odpowiedzi w formie tekstowych chipsów;
 - blok źródeł i poziomu pewności.
@@ -306,7 +306,7 @@ czytelności, porównaniu i źródłom, nie zwiększaniu liczby jednoczesnych ko
 
 ## 14. Język interfejsu
 
-Sigma mówi prosto, konkretnie i spokojnie. Używa aktywnych czasowników i krótkich zdań.
+Picky mówi prosto, konkretnie i spokojnie. Używa aktywnych czasowników i krótkich zdań.
 Nie udaje człowieka ani nie przypisuje sobie emocji.
 
 Preferowane:
@@ -382,7 +382,7 @@ Przed zaakceptowaniem nowego ekranu należy sprawdzić:
 
 ### Założenia
 
-- Sigma będzie obsługiwać wszystkie kategorie używanej elektroniki, mimo że pierwsze
+- Picky będzie obsługiwać wszystkie kategorie używanej elektroniki, mimo że pierwsze
   demo może koncentrować się na słuchawkach.
 - Interfejs jest budowany mobile first i pozostaje użyteczny na desktopie.
 - Użytkownik może zmienić preferencję bez utraty całej rozmowy.
@@ -415,7 +415,7 @@ niepewność, stałe proporcje mediów i testy komponentów na skrajnie długich
 
 ## 21. Element rozpoznawczy
 
-Charakterystycznym elementem Sigmy jest **płynna przemiana rozmowy w talię decyzji**.
+Charakterystycznym elementem Picky jest **płynna przemiana rozmowy w talię decyzji**.
 Ostatnia odpowiedź nie kończy się listą linków: kondensuje się do krótkiego briefu nad
 kartą, dzięki czemu użytkownik widzi bezpośredni związek między tym, co powiedział, a
 tym, co otrzymał. To połączenie kontekstu rozmowy z wyborem jednej rzeczy naraz powinno
