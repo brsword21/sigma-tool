@@ -47,6 +47,45 @@ RUN_LIVE_TESTS=1 .venv/bin/pytest tests/live/test_phase4_services.py -v -s
 Skrypt smoke nie wypisuje kluczy ani pełnych payloadów. Zwraca wyłącznie liczby wyników,
 statusy, czas i kontrolowane opisy błędów.
 
+## Faza 5: Deal Watch
+
+Deal Watch działa lokalnie również bez skonfigurowanych usług zewnętrznych. Przyjmuje
+mandat `alert_only`, oblicza pełny koszt oferty i zapisuje decyzję `ignore`, `hold` albo
+`alert` wraz z rachunkiem oraz powodami.
+
+Utworzenie przykładowego mandatu:
+
+```bash
+curl -X POST http://localhost:8000/deal-watch/mandates \
+  -H 'content-type: application/json' \
+  -d '{
+    "product_model": "Apple AirPods Pro",
+    "exact_variant": "AirPods Pro 2 USB-C",
+    "max_landed_cost": "500.00",
+    "currency": "PLN",
+    "min_condition": "good",
+    "min_seller_rating": "4.5",
+    "mode": "alert_only"
+  }'
+```
+
+Identyfikator `id` z odpowiedzi można przekazać do kontrolowanego scenariusza:
+
+```bash
+curl -X POST http://localhost:8000/deal-watch/mandates/<mandate-id>/simulate
+curl http://localhost:8000/deal-watch/mandates/<mandate-id>/decisions
+```
+
+Symulator zawiera sześć zdarzeń: prawdziwą okazję, zły wariant, pułapkę kosztu
+dostawy, brak dostępności, brak oceny sprzedawcy i fałszywą obniżkę. Oczekiwany wynik
+to jeden `alert`, jeden `hold` i cztery `ignore`. Można też przekazać 1–10 własnych
+zdarzeń do `POST /deal-watch/mandates/<mandate-id>/events`.
+Ponowne przesłanie tego samego `event_id` zwraca istniejącą decyzję i nie tworzy
+drugiego alertu.
+
+Mandaty i historia są przechowywane wyłącznie w pamięci procesu. Restart je usuwa.
+Faza 5 nie wykonuje checkoutu, zakupu ani płatności i nie jest produkcyjnym schedulerem.
+
 ## Dane i ograniczenia demo
 
 - Firecrawl jest jedynym źródłem ofert i ma osobny timeout 20 sekund.

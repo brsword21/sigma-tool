@@ -1,10 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health_router, products_router, runs_router, sessions_router
+from app.api import (
+    deal_watch_router,
+    health_router,
+    products_router,
+    runs_router,
+    sessions_router,
+)
 from app.api.dependencies import ApplicationServices
 from app.bootstrap import build_application_services
 from app.config import Settings, get_settings
+from app.deal_watch.repository import InMemoryDealWatchRepository
+from app.deal_watch.service import DealWatchService
 
 
 def create_app(
@@ -17,6 +25,7 @@ def create_app(
     app = FastAPI(title=resolved_settings.app_name, version="0.1.0")
     app.state.settings = resolved_settings
     app.state.services = resolved_services
+    app.state.deal_watch = DealWatchService(InMemoryDealWatchRepository())
     app.add_middleware(
         CORSMiddleware,
         allow_origins=resolved_settings.cors_origins,
@@ -26,6 +35,7 @@ def create_app(
     )
 
     app.include_router(health_router)
+    app.include_router(deal_watch_router)
     app.include_router(sessions_router)
     app.include_router(runs_router)
     app.include_router(products_router)
