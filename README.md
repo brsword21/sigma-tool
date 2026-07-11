@@ -1,0 +1,104 @@
+# Sigma Shopping Agent
+
+Backend demonstracyjnego agenta zakupowego dla używanych słuchawek. Przyjmuje potrzebę
+albo produkt referencyjny, proponuje 4–6 kierunków, a po wyborze pobiera oferty i osobno
+pokazuje dopasowanie produktu, jakość oferty oraz wiarygodność sprzedawcy.
+
+## Uruchomienie
+
+Wymagany jest Python 3.12 oraz lokalny plik `.env` utworzony na podstawie `.env.example`.
+Wartości przykładowe zawierające `...` albo `<project-ref>` są celowo odrzucane jako
+niegotowa konfiguracja.
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/pip install -e '.[dev]'
+.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Health check jest dostępny pod `GET http://localhost:8000/health`. Domyślne originy CORS
+to `http://localhost:3000` i `http://localhost:5173`.
+
+## Baza danych
+
+Przed pierwszym uruchomieniem zastosuj kolejno:
+
+- `supabase/migrations/001_initial_schema.sql`
+- `supabase/migrations/002_demo_hardening.sql`
+
+Można wkleić je do SQL Editora developerskiego projektu Supabase albo, dla połączonego
+lokalnego projektu Supabase CLI, wykonać `supabase db push`.
+
+## Testy
+
+```bash
+.venv/bin/ruff check app tests scripts
+.venv/bin/pytest
+```
+
+Testy prawdziwych usług są jawnie opt-in, ponieważ zużywają limity OpenAI i Firecrawl
+oraz łączą się z developerskim Supabase:
+
+```bash
+RUN_LIVE_TESTS=1 .venv/bin/pytest tests/live/test_phase4_services.py -v -s
+.venv/bin/python scripts/phase4_smoke.py
+```
+
+Skrypt smoke nie wypisuje kluczy ani pełnych payloadów. Zwraca wyłącznie liczby wyników,
+statusy, czas i kontrolowane opisy błędów.
+
+## Faza 5: Deal Watch
+
+Deal Watch działa lokalnie również bez skonfigurowanych usług zewnętrznych. Przyjmuje
+mandat `alert_only`, oblicza pełny koszt oferty i zapisuje decyzję `ignore`, `hold` albo
+`alert` wraz z rachunkiem oraz powodami.
+
+Utworzenie przykładowego mandatu:
+
+```bash
+curl -X POST http://localhost:8000/deal-watch/mandates \
+  -H 'content-type: application/json' \
+  -d '{
+    "product_model": "Apple AirPods Pro",
+    "exact_variant": "AirPods Pro 2 USB-C",
+    "max_landed_cost": "500.00",
+    "currency": "PLN",
+    "min_condition": "good",
+    "min_seller_rating": "4.5",
+    "mode": "alert_only"
+  }'
+```
+
+Identyfikator `id` z odpowiedzi można przekazać do kontrolowanego scenariusza:
+
+```bash
+curl -X POST http://localhost:8000/deal-watch/mandates/<mandate-id>/simulate
+curl http://localhost:8000/deal-watch/mandates/<mandate-id>/decisions
+```
+
+Symulator zawiera sześć zdarzeń: prawdziwą okazję, zły wariant, pułapkę kosztu
+dostawy, brak dostępności, brak oceny sprzedawcy i fałszywą obniżkę. Oczekiwany wynik
+to jeden `alert`, jeden `hold` i cztery `ignore`. Można też przekazać 1–10 własnych
+zdarzeń do `POST /deal-watch/mandates/<mandate-id>/events`.
+Ponowne przesłanie tego samego `event_id` zwraca istniejącą decyzję i nie tworzy
+drugiego alertu.
+
+Mandaty i historia są przechowywane wyłącznie w pamięci procesu. Restart je usuwa.
+Faza 5 nie wykonuje checkoutu, zakupu ani płatności i nie jest produkcyjnym schedulerem.
+
+## Dane i ograniczenia demo
+
+- Firecrawl jest jedynym źródłem ofert i ma osobny timeout 20 sekund.
+- Pełne pobieranie ofert rusza dopiero po wyborze produktu; późniejsza miękka zmiana
+  preferencji wykonuje rerank cache bez ponownego pobierania.
+- Model i generacja są filtrem twardym przed scoringiem.
+- Cache starszy niż 24 godziny może uratować wynik po awarii źródła, ale jest oznaczony
+  przez `is_stale=true`, `stale_cache` i pewność nie większą niż `0.4`.
+- Opinie sprzedawcy, gwarancja, zwrot, oryginalność i bateria są pokazywane jako
+  `unknown`, jeśli payload źródła ich nie zawiera. System ich nie domyśla.
+- Research bez dostarczonego źródła ma `unverified_product_research`, pustą listę źródeł
+  i obniżoną pewność.
+- Błąd Firecrawl nie powoduje błędu 500 runu: dostępny cache daje status `partial`, a brak
+  danych kontrolowany status `failed`.
+- BackgroundTasks wystarcza do lokalnego demo, ale nie zapewnia trwałości pracy po
+  restarcie procesu i nie jest kolejką produkcyjną.

@@ -1,17 +1,23 @@
-# Shopping Agent Backend — Execution Phases
+# Shopping Agent Backend — Implementation Plan and Roadmap
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Dostarczyć demonstracyjne MVP backendu agenta zakupowego dla używanych słuchawek, od rozmowy i wyboru modelu po ranking ofert oraz zmianę preferencji bez utraty kontekstu.
+**Goal:** Dostarczyć demonstracyjne MVP backendu agenta zakupowego dla używanych słuchawek, które przyjmuje ogólną potrzebę lub produkt referencyjny, znajduje podobne i lepiej dopasowane modele, a następnie osobno ocenia produkt, ofertę i sprzedawcę bez utraty kontekstu rozmowy.
 
-**Architecture:** Modularny monolit FastAPI zapisuje stan i dane domenowe w Supabase. Kod deterministycznie obsługuje cache, normalizację, filtry i ranking, a dostawca LLM odpowiada wyłącznie za interpretację języka, research i krótkie wyjaśnienia. Adaptery źródeł są izolowane wspólnym protokołem, dzięki czemu awaria źródła nie blokuje danych z cache.
+**Architecture:** Modularny monolit FastAPI zapisuje stan, produkt referencyjny, kandydatów i dane ofertowe w Supabase. Kod deterministycznie obsługuje cache, warianty, normalizację, filtry oraz trzy składowe rankingu, a dostawca LLM odpowiada za interpretację języka, identyfikację wzorca, research i krótkie wyjaśnienia. Tani etap odkrywania kandydatów poprzedza pełne pobieranie ofert, a adaptery źródeł pozostają odizolowane wspólnym protokołem.
 
-**Tech Stack:** Python 3.12, FastAPI, Pydantic 2, Supabase/PostgreSQL, pytest/pytest-asyncio, httpx, dostawca LLM z structured output, istniejący scraper OLX, opcjonalnie Firecrawl.
+**Tech Stack:** Python 3.12, FastAPI, Pydantic 2, Supabase/PostgreSQL, pytest/pytest-asyncio, httpx, OpenAI structured output oraz Firecrawl jako pierwsze źródło danych.
 
 ## Global Constraints
 
 - MVP obsługuje jedną kategorię: używane słuchawki.
-- Agent zadaje maksymalnie trzy pytania doprecyzowujące i przedstawia 4–6 modeli.
+- Agent przyjmuje dwa wejścia: opis potrzeby albo nazwę produktu referencyjnego wraz z krótką preferencją.
+- Agent zadaje maksymalnie trzy pytania doprecyzowujące i przedstawia 4–6 modeli z orientacyjną ceną, podobieństwami, różnicami i kompromisem.
+- Pierwsza lista służy wyborowi kierunku i nie może być przedstawiana jako ostateczny ranking ofert.
+- Wyszukiwanie jest dwuetapowe: ograniczony research kandydatów, następnie pełne porównanie po wyborze kierunku.
+- Finalny wynik rozdziela ocenę dopasowania produktu, jakości oferty oraz wiarygodności sprzedawcy; brak danych pozostaje jawnie oznaczony.
+- Każdy fakt zewnętrzny przechowuje źródło i czas pozyskania; niepewnych danych nie wolno przedstawiać jako potwierdzonych.
+- Dokładny wariant produktu jest twardym filtrem przed rankingiem.
 - Cache ofert jest wystarczający przy co najmniej 10 aktywnych ofertach z ostatnich 24 godzin; po twardym filtrowaniu ponowne pobranie następuje poniżej 5 ofert.
 - TTL researchu produktu wynosi 30 dni.
 - Ranking ma skalę 0–100, jawne składowe 30/25/20/10/10/5 i karę ryzyka 0–30.
@@ -68,7 +74,7 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 
 **Brama:** workerzy potwierdzają, że nie potrzebują zmian nazw pól ani sygnatur do realizacji swoich zakresów.
 
-## Faza 2 — Równoległy rdzeń deterministyczny (35–50 min)
+## Faza 2 — Równoległy rdzeń deterministyczny (35–50 min) ✅ ZAKOŃCZONA
 
 ### 2A — Dane i cache (Worker A)
 
@@ -76,11 +82,11 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 
 **Planowane pliki:** `supabase/migrations/001_initial_schema.sql`, `app/repositories/supabase.py`, `app/services/cache_policy.py`, `tests/repositories/test_listings.py`, `tests/services/test_cache_policy.py`.
 
-- [ ] Utworzyć siedem tabel, indeksy, klucze obce i ograniczenia unikalności zgodnie ze specyfikacją.
-- [ ] Zaimplementować upsert ogłoszenia z aktualizacją `last_seen_at` oraz snapshotem ceny/dostępności.
-- [ ] Zaimplementować odczyt świeżych aktywnych ofert po twardych filtrach.
-- [ ] Zaimplementować decyzję `rerank`/`refetch` z progami 10/5 i TTL 24 h oraz TTL researchu 30 dni.
-- [ ] Udowodnić testem, że ponowny zapis `(source, external_id)` nie tworzy duplikatu.
+- [x] Utworzyć siedem tabel, indeksy, klucze obce i ograniczenia unikalności zgodnie ze specyfikacją.
+- [x] Zaimplementować upsert ogłoszenia z aktualizacją `last_seen_at` oraz snapshotem ceny/dostępności.
+- [x] Zaimplementować odczyt świeżych aktywnych ofert po twardych filtrach.
+- [x] Zaimplementować decyzję `rerank`/`refetch` z progami 10/5 i TTL 24 h oraz TTL researchu 30 dni.
+- [x] Udowodnić testem, że ponowny zapis `(source, external_id)` nie tworzy duplikatu.
 
 ### 2B — Źródła, normalizacja i ranking (Worker B)
 
@@ -88,11 +94,11 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 
 **Planowane pliki:** `app/sources/olx.py`, `app/sources/firecrawl.py`, `app/listings/normalizer.py`, `app/ranking/engine.py`, `app/ranking/risk.py`, `tests/fixtures/olx/`, `tests/sources/test_olx.py`, `tests/ranking/test_engine.py`.
 
-- [ ] Owinąć istniejący scraper kontraktem `ListingSource`; nie przepisywać scrapera w pierwszej iteracji.
-- [ ] Znormalizować walutę, cenę, stan, lokalizację, dostawę, kolor i identyfikator z realnego fixture'a.
-- [ ] Ograniczyć każde źródło osobnym timeoutem i mapować błąd na kontrolowany rezultat.
-- [ ] Zaimplementować twarde filtry przed punktacją oraz dokładne składowe 30/25/20/10/10/5 minus ryzyko 0–30.
-- [ ] Ograniczyć dane do uzasadnienia do trzech zalet i jednego ryzyka.
+- [x] Owinąć Firecrawl dla OLX kontraktem `ListingSource` zgodnie z decyzją Fazy 0.
+- [x] Znormalizować walutę, cenę, stan, lokalizację, dostawę, kolor i identyfikator z fixture'a Firecrawl.
+- [x] Ograniczyć źródło osobnym timeoutem i mapować błąd na kontrolowany rezultat.
+- [x] Zaimplementować twarde filtry przed punktacją oraz dokładne składowe 30/25/20/10/10/5 minus ryzyko 0–30.
+- [x] Ograniczyć dane do uzasadnienia do trzech zalet i jednego ryzyka.
 
 ### 2C — Rozmowa i LLM (Integrator)
 
@@ -100,47 +106,121 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 
 **Planowane pliki:** `app/conversation/service.py`, `app/product_research/service.py`, `app/llm/client.py`, `app/llm/schemas.py`, `tests/conversation/test_service.py`, `tests/product_research/test_service.py`.
 
-- [ ] Oddzielić klasyfikację zmiany (`rerank`, `refetch`, `new_product_research`) od wykonania decyzji.
-- [ ] Walidować każde structured output modelem Pydantic i wykonać najwyżej jedną próbę naprawczą.
-- [ ] Zapisać prompty jako wersjonowane stałe i nie pozwolić LLM decydować o progach cache ani wyniku rankingu.
-- [ ] Zaimplementować mock klienta używany w pełnym teście API.
+- [x] Oddzielić klasyfikację zmiany (`rerank`, `refetch`, `new_product_research`) od wykonania decyzji.
+- [x] Walidować każde structured output modelem Pydantic i wykonać najwyżej jedną próbę naprawczą.
+- [x] Zapisać prompty jako wersjonowane stałe i nie pozwolić LLM decydować o progach cache ani wyniku rankingu.
+- [x] Zaimplementować mock klienta używany w testach usług (pełny test API należy do Fazy 3).
 
-**Brama:** wszystkie trzy gałęzie przechodzą własne testy bez połączenia z produkcyjnymi usługami.
+**Brama:** ✅ spełniona — 16 testów przechodzi bez połączenia z produkcyjnymi usługami.
 
-## Faza 3 — Integracja orkiestracji i API (Integrator, 35–50 min)
+## Faza 3 — Rozszerzenie kontraktów, orkiestracja i API (Integrator, 50–70 min)
 
-**Rezultat:** pełny przepływ API działa na mockach, zapisuje stan runu i zachowuje częściowy wynik po awarii źródła.
+**Rezultat:** pełny przepływ od potrzeby lub produktu referencyjnego do rankingu ofert działa na mockach, zapisuje stan runu i zachowuje częściowy wynik po awarii źródła.
 
-**Planowane pliki:** `app/orchestration/search.py`, `app/api/sessions.py`, `app/api/runs.py`, `app/api/products.py`, `app/api/health.py`, `tests/api/test_happy_path.py`, `tests/api/test_partial_failure.py`.
+**Planowane pliki:** `docs/superpowers/specs/2026-07-11-shopping-agent-backend-design.md`, `app/domain/models.py`, `app/llm/schemas.py`, `app/conversation/service.py`, `app/product_research/service.py`, `app/orchestration/search.py`, `app/api/sessions.py`, `app/api/runs.py`, `app/api/products.py`, `app/api/health.py`, `tests/conversation/test_reference_product.py`, `tests/product_research/test_similarity.py`, `tests/api/test_happy_path.py`, `tests/api/test_partial_failure.py`.
 
-- [ ] Scalić 2A, uruchomić cały zestaw testów, następnie scalić 2B i ponownie uruchomić testy.
-- [ ] Równolegle uruchamiać brief oraz sprawdzenie/pobranie ofert przez `asyncio.gather` z izolacją wyjątków.
-- [ ] Uruchamiać dłuższy run przez `BackgroundTasks`, od razu zwracając `run_id`.
-- [ ] Zapisywać status, sukcesy i błędy źródeł w `search_runs`; nie nadpisywać użytecznego cache.
-- [ ] Wystawić siedem endpointów ze specyfikacji i jednolity format odpowiedzi.
-- [ ] Przetestować happy path oraz przypadek: jedno źródło pada, wynik drugiego/cache pozostaje dostępny.
+- [x] Scalić 2A, uruchomić cały zestaw testów, następnie scalić 2B i ponownie uruchomić testy.
+- [x] Zaktualizować specyfikację backendu o dwa wejścia, produkt referencyjny, etap eksploracji i trzy osobne składowe oceny.
+- [x] Rozszerzyć modele domenowe o `reference_product`, `search_direction`, `similarity_reasons`, `differences`, `estimated_price`, `exact_variant`, `seller_signals`, `warranty`, `returns`, `data_gaps`, `confidence` i metadane źródła.
+- [x] Rozszerzyć structured output rozmowy tak, aby rozpoznawał produkt referencyjny, wnioskował priorytety i nie zadawał pytania, jeśli krótka wypowiedź wystarcza do pierwszego researchu.
+- [x] Zaimplementować tani etap odkrywania maksymalnie 10 kandydatów i zwracać 4–6 propozycji z ceną, podobieństwami, różnicami oraz kompromisem.
+- [x] Dodać wybór kierunku: `most_similar`, `best_quality`, `lowest_price`, `best_value`; wybór aktualizuje preferencje bez resetowania sesji.
+- [x] Równolegle uruchamiać brief oraz sprawdzenie lub pobranie ofert przez `asyncio.gather` z izolacją wyjątków dopiero po wyborze modelu lub kierunku.
+- [x] Uruchamiać dłuższy run przez `BackgroundTasks`, od razu zwracając `run_id`.
+- [x] Zapisywać status, sukcesy i błędy źródeł w `search_runs`; nie nadpisywać użytecznego cache.
+- [x] Wystawić endpointy ze specyfikacji i jednolity format odpowiedzi zawierający `source_url`, `retrieved_at`, `confidence` oraz `data_gaps`.
+- [x] Przetestować dwa happy pathy: wejście od potrzeby i wejście „coś jak AirPods Pro, ale taniej”.
+- [x] Przetestować zachowanie kontekstu po zmianie kierunku oraz przypadek, w którym źródło pada, lecz cache pozostaje dostępny.
 
-**Brama:** kryteria akceptacji przechodzą w całości na mockowanym LLM i źródle.
+**Brama:** oba punkty wejścia przechodzą na mockach do co najmniej trzech ofert, cena jest widoczna od pierwszej listy, a niepewne dane pozostają oznaczone.
 
 ## Faza 4 — Podłączenie usług i utwardzenie demo (wszyscy, 25–40 min)
 
-**Rezultat:** realna sesja demo kończy się w mniej niż trzy minuty i daje co najmniej trzy oferty z linkami.
+**Rezultat:** realna sesja demo od produktu referencyjnego kończy się w mniej niż trzy minuty i daje co najmniej trzy oferty z linkami, wariantami oraz dostępnymi sygnałami ryzyka.
 
 - [ ] Worker A uruchamia migracje na developerskim Supabase i wykonuje smoke test repozytoriów.
 - [ ] Worker B wykonuje jedno kontrolowane pobranie OLX i potwierdza normalizację realnego payloadu.
 - [ ] Integrator wykonuje realne structured output LLM dla rozmowy, researchu i wyjaśnień.
-- [ ] Zmierzyć timeout każdego źródła, całkowity czas runu i oznaczenie nieaktualnego cache.
-- [ ] Przejść scenariusz: nowa sesja → minimum cztery modele → wybór → minimum trzy oferty → zmiana preferencji → rerank bez utraty kontekstu.
-- [ ] Zapisać znane ograniczenia i komendy startowe w `README.md`.
+- [ ] Potwierdzić, które pola dotyczące opinii, sprzedawcy, gwarancji, zwrotu, oryginalności i baterii są realnie dostępne; niedostępne pola oznaczać jako `unknown`, nie uzupełniać ich przez domysł. → **normalizator i API oznaczają braki; potwierdzenie live payloadu czeka na prawidłowy klucz Firecrawl**
+- [x] Zweryfikować dokładny wariant każdej finalnej oferty i odrzucać niezgodną generację lub wersję przed scoringiem.
+- [x] Zmierzyć timeout każdego źródła, całkowity czas runu i oznaczenie nieaktualnego cache.
+- [ ] Przejść scenariusz: „jak AirPods Pro, ale taniej” → minimum cztery modele z ceną → `best_value` → minimum trzy oferty → „ważniejsza jest gwarancja” → rerank bez utraty kontekstu.
+- [x] Pokazać osobno wynik produktu, oferty i sprzedawcy oraz co najmniej jedno jawne ograniczenie lub brak danych.
+- [x] Udowodnić w logach, że pełne pobieranie ofert uruchamia się dopiero po zawężeniu kierunku.
+- [x] Zapisać znane ograniczenia i komendy startowe w `README.md`.
 
-**Brama końcowa:** komplet kryteriów z sekcji 11 specyfikacji, brak błędu 500 przy awarii źródła i cały pokaz poniżej trzech minut.
+**Brama końcowa:** komplet kryteriów z `goal.md`, brak błędu 500 przy awarii źródła, brak zmyślonych faktów oraz cały pokaz poniżej trzech minut.
 
-## Faza 5 — Rezerwa, tylko po spełnieniu MVP
+## Faza 5 — Deal Watch / Mandate ✅ ZAKOŃCZONA
 
-- [ ] Dodać Firecrawl jako fallback, jeśli klucz i domeny są gotowe, a OLX okazał się niestabilny.
-- [ ] Dodać drugi adapter wyłącznie wtedy, gdy nie wymaga zmiany domenowych kontraktów.
-- [ ] Poprawić obserwowalność i logi korelacyjne przez `session_id` i `run_id`.
-- [ ] Nie dodawać Redis/Celery, autoryzacji, płatności ani uczenia rankera w trzygodzinnym oknie.
+**Rezultat:** deterministyczny scenariusz pokazuje, że agent odrzuca pozorne okazje,
+oblicza pełny koszt i emituje pojedynczy audytowalny alert wyłącznie po spełnieniu
+twardych warunków mandatu. Projekt i plan: `docs/superpowers/specs/2026-07-11-phase5-deal-watch-design.md`
+oraz `docs/superpowers/plans/2026-07-11-phase5-deal-watch.md`.
+
+- [x] Dodać mandat `alert_only` z dokładnym wariantem, maksymalnym kosztem końcowym,
+  minimalnym stanem i minimalną oceną sprzedawcy.
+- [x] Obliczać jawny landed cost: cena + dostawa + opłaty + koszt FX − ważny kupon.
+- [x] Zaimplementować decyzje `ignore`, `hold` i `alert` z kodami powodów oraz pełnym
+  rachunkiem kosztu.
+- [x] Dodać sześć deterministycznych zdarzeń: prawdziwa okazja, zły wariant, pułapka
+  dostawy, brak stocku, brak oceny sprzedawcy i fałszywa obniżka.
+- [x] Udostępnić osobne endpointy utworzenia mandatu, oceny zdarzeń, symulacji i historii.
+- [x] Ograniczyć paczkę wejściową do 1–10 unikalnych zdarzeń i odrzucać dodatkowe pola.
+- [x] Zapewnić idempotencję `event_id`, aby ponowienie żądania nie tworzyło drugiego alertu.
+- [x] Udowodnić testami wynik scenariusza: 1 `alert`, 1 `hold`, 4 `ignore`.
+- [x] Zachować izolację od OpenAI, Firecrawl i Supabase oraz nie dodawać zakupu,
+  płatności, Redis ani Celery.
+
+## Roadmapa po hackathonie
+
+### Faza 6 — Wiarygodność danych i drugi marketplace
+
+**Cel:** ranking korzysta z co najmniej dwóch źródeł i potrafi wyjaśnić pochodzenie oraz świeżość każdego istotnego sygnału.
+
+- [ ] Dodać produkcyjny adapter eBay lub innego źródła z legalnym i stabilnym dostępem.
+- [ ] Wprowadzić wspólny model sprzedawcy, opinii, gwarancji, zwrotów i historii sprzedaży.
+- [ ] Dodać reguły rozstrzygania sprzecznych danych oraz poziom pewności per pole.
+- [ ] Deduplikować tę samą ofertę lub ten sam egzemplarz widoczny w wielu źródłach.
+- [ ] Monitorować świeżość, skuteczność i koszt każdego adaptera.
+
+**Brama:** co najmniej dwa źródła przechodzą test kontraktowy, a UI potrafi wskazać źródło, czas i pewność danych.
+
+### Faza 7 — Inteligentniejsze podobieństwo i jakość produktu
+
+**Cel:** podobieństwo jest obliczane na poziomie cech właściwych dla kategorii, a użytkownik rozumie, co zyskuje i traci względem wzorca.
+
+- [ ] Zdefiniować wersjonowaną ontologię cech słuchawek: konstrukcja, ANC, kodeki, bateria, mikrofon, ekosystem, komfort, serwisowalność.
+- [ ] Rozdzielić twarde podobieństwo funkcjonalne od miękkiego podobieństwa marki i wyglądu.
+- [ ] Włączyć jakość i wiarygodność opinii bez traktowania liczby gwiazdek jako samodzielnego dowodu.
+- [ ] Dodać dane o naprawialności, dostępności części, baterii i znanych awariach wraz ze źródłami.
+- [ ] Skalibrować wagi na podstawie testów użytkowników, pozostawiając jawne uzasadnienie wyniku.
+
+**Brama:** dla zestawu referencyjnego eksperci oceniają większość Top 3 jako sensowne alternatywy, a system wskazuje kluczowy kompromis każdej z nich.
+
+### Faza 8 — Pamięć, historia cen i proaktywne okazje
+
+**Cel:** system wykorzystuje wcześniejsze dane do szybszych odpowiedzi i lepszej oceny opłacalności.
+
+- [ ] Wersjonować research produktów i podobieństwa zamiast generować je od zera.
+- [ ] Budować historię ceny i dostępności właściwego wariantu.
+- [ ] Wykrywać okazje względem historycznej ceny, a nie tylko mediany bieżących ogłoszeń.
+- [ ] Zapamiętywać preferencje użytkownika za zgodą i z możliwością ich usunięcia.
+- [ ] Dodać powiadomienia o nowych ofertach spełniających zapisane kryteria.
+
+**Brama:** cache obniża koszt i czas bez pogorszenia świeżości, a „okazja” ma audytowalne uzasadnienie historyczne.
+
+### Faza 9 — Rozszerzenie kategorii i interakcja wizualna
+
+**Cel:** wspólny przepływ działa dla kolejnych kategorii bez udawania, że wszystkie mają te same kryteria.
+
+- [ ] Wydzielić konfigurację cech, filtrów i wag per kategoria.
+- [ ] Dodać drugą kategorię dopiero po przejściu pełnego zestawu testów kontraktowych.
+- [ ] Obsłużyć zdjęcie jako produkt referencyjny i oddzielić podobieństwo wizualne od funkcjonalnego.
+- [ ] Dodać konta, zgodę na personalizację i kontrolę prywatności przed trwałą pamięcią między sesjami.
+- [ ] Ocenić potrzebę kolejki zadań i workerów na podstawie realnego ruchu, nie założeń.
+
+**Brama:** nowa kategoria przechodzi ten sam happy path, ale korzysta z własnych kryteriów produktu, wariantu i ryzyka.
 
 ## Zależności, które musi zapewnić właściciel projektu
 
@@ -148,14 +228,19 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 
 - Dokładna nazwa i dostawca modelu LLM, klucz API, dozwolone SDK oraz limit kosztu/rate limit.
 - Developerski projekt Supabase: `SUPABASE_URL`, backendowy `SUPABASE_SERVICE_ROLE_KEY`, hasło/connection string dla migracji oraz zgoda na utworzenie tabel.
-- Istniejący scraper OLX: repozytorium lub katalog, wersja uruchomieniowa, licencja, sposób uwierzytelnienia/proxy oraz realne, zanonimizowane fixture'y.
-- Decyzja, czy Firecrawl wchodzi do MVP; jeśli tak: `FIRECRAWL_API_KEY`, lista dozwolonych stron i oczekiwany limit użycia.
+- Firecrawl jako pierwsze źródło: `FIRECRAWL_API_KEY`, lista dozwolonych stron, oczekiwany limit użycia oraz realne, zanonimizowane fixture'y odpowiedzi.
+- Potwierdzenie, że wykorzystanie wybranych domen i pobieranych pól jest zgodne z ich regulaminami oraz warunkami demo.
 - Środowisko wdrożenia, domena/API URL, lista CORS oraz sposób przekazywania sekretów.
 
 ### Decyzje produktowe, które warto zamrozić
 
+- Jeden dokładny produkt referencyjny i wariant do demo — rekomendacja: AirPods Pro z jawnym wskazaniem generacji.
+- Definicja czterech kierunków: najbardziej podobny, najlepsza jakość, najniższa cena i najlepszy stosunek ceny do jakości.
 - Definicja krytycznych wymagań dla słuchawek i mapa: twarde kontra miękkie preferencje.
+- Minimalny zestaw cech używany do oceny podobieństwa produktu.
+- Reguła dokładnego dopasowania wariantu oraz sposób prezentowania `unknown`.
 - Reguła oceny stanu (`new`, `like_new`, `very_good`, `good`, `fair`, `unknown`) i minimalne sygnały ryzyka.
+- Dane o sprzedawcy, opiniach, gwarancji i zwrocie, które realnie udostępnia pierwsze źródło.
 - Czy „minimum trzy oferty” może pochodzić z nieaktualnego cache, gdy wszystkie źródła zawiodą — rekomendacja: tak, z datą pobrania.
 - Język odpowiedzi i waluta demo — rekomendacja: polski i PLN.
 - Jedna konkretna ścieżka demo wraz z przykładowym budżetem, modelem oraz zmianą preferencji.
@@ -171,8 +256,12 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 
 ## Ryzyka harmonogramu
 
-- „Mniej niż trzy godziny” jest realne tylko przy działającym scraperze, gotowym Supabase i braku zmian kontraktów po Fazie 1.
+- Nowe wymagania zmieniają kontrakty zamrożone w Fazie 1; rozszerzenia należy wykonać centralnie przed budową orkiestracji, inaczej powstaną niespójne modele API i bazy.
+- „Mniej niż trzy godziny” jest realne tylko przy gotowym Firecrawl, Supabase i ograniczeniu danych sprzedawcy do pól faktycznie dostępnych w pierwszym źródle.
 - Trzy modele pracujące bez osobnych gałęzi/worktree prawdopodobnie stracą czas na konflikty; integrator musi scalać sekwencyjnie.
 - `BackgroundTasks` nie gwarantuje wznowienia po restarcie procesu; wystarcza do demo, ale status `running` może pozostać osierocony.
 - Research oparty na LLM bez jawnego narzędzia web/retrieval może halucynować źródła; w MVP należy przechowywać tylko źródła faktycznie zwrócone przez zatwierdzony mechanizm researchu.
+- Opinie, gwarancja, zwrot, oryginalność części i stan baterii mogą nie być dostępne w źródle; brak danych musi obniżać pewność, ale nie może być fałszywie uzupełniany.
+- Porównywanie cen bez dokładnego wariantu prowadzi do błędnych rekomendacji; wariant jest filtrem, nie miękką preferencją.
+- Dodanie wielu źródeł przed ustabilizowaniem happy path zwiększa ryzyko niespójności, duplikatów i przekroczenia czasu demo.
 - Scraping OLX może podlegać ograniczeniom technicznym i regulaminowym; właściciel projektu odpowiada za zgodę, limity i zgodność użycia.

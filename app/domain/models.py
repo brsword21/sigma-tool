@@ -47,6 +47,23 @@ class ChangeIntent(StrEnum):
     NEW_PRODUCT_RESEARCH = "new_product_research"
 
 
+class SearchDirection(StrEnum):
+    MOST_SIMILAR = "most_similar"
+    BEST_QUALITY = "best_quality"
+    LOWEST_PRICE = "lowest_price"
+    BEST_VALUE = "best_value"
+
+
+class ReferenceProduct(DomainModel):
+    brand: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    exact_variant: str | None = None
+    source_url: HttpUrl | None = None
+    retrieved_at: datetime | None = None
+    confidence: float = Field(default=1.0, ge=0, le=1)
+    data_gaps: list[str] = Field(default_factory=list)
+
+
 class Requirements(DomainModel):
     category: str = "headphones"
     budget_max: Decimal | None = Field(default=None, gt=0)
@@ -57,6 +74,8 @@ class Requirements(DomainModel):
     preferred_colors: list[str] = Field(default_factory=list)
     location: str | None = None
     delivery_required: bool | None = None
+    reference_product: ReferenceProduct | None = None
+    search_direction: SearchDirection = SearchDirection.BEST_VALUE
     question_count: int = Field(default=0, ge=0, le=3)
 
 
@@ -83,6 +102,7 @@ class RawListing(DomainModel):
 
 
 class NormalizedListing(DomainModel):
+    id: UUID | None = None
     product_id: UUID | None = None
     source: str = Field(min_length=1)
     external_id: str = Field(min_length=1)
@@ -94,12 +114,19 @@ class NormalizedListing(DomainModel):
     color: str | None = None
     location: str | None = None
     delivery: bool | None = None
+    exact_variant: str | None = None
+    warranty: str | None = None
+    returns: str | None = None
+    seller_signals: dict[str, Any] = Field(default_factory=dict)
     description: str | None = None
     attributes: dict[str, Any] = Field(default_factory=dict)
     image_urls: list[HttpUrl] = Field(default_factory=list)
     raw_payload: dict[str, Any] = Field(default_factory=dict)
     first_seen_at: datetime | None = None
     last_seen_at: datetime | None = None
+    retrieved_at: datetime | None = None
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    data_gaps: list[str] = Field(default_factory=list)
     active: bool = True
 
 
@@ -132,6 +159,11 @@ class RankedListing(DomainModel):
     strengths: list[str] = Field(default_factory=list, max_length=3)
     risk_or_tradeoff: str | None = None
     explanation: str | None = None
+    product_match_score: float = Field(default=0, ge=0, le=100)
+    offer_quality_score: float = Field(default=0, ge=0, le=100)
+    seller_trust_score: float = Field(default=0, ge=0, le=100)
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    data_gaps: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def score_matches_breakdown(self) -> "RankedListing":
@@ -149,4 +181,3 @@ class ApiError(DomainModel):
 
 class ErrorResponse(DomainModel):
     error: ApiError
-
