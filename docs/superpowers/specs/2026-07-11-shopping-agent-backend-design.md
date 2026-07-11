@@ -4,21 +4,22 @@
 
 Celem jest zbudowanie w mniej niż trzy godziny stabilnego backendowego MVP dla jednej kategorii demonstracyjnej: używanych słuchawek. Dwie osoby mają dostarczyć kompletny przepływ od opisu potrzeby, przez rekomendację modeli, po ranking konkretnych ofert i przekierowanie do portalu.
 
-MVP działa jako modularny monolit FastAPI z Supabase jako trwałą pamięcią produktów, researchu, ogłoszeń, historii cen i sesji. Istniejący scraper OLX oraz Firecrawl są podłączane przez ten sam kontrakt co przyszłe źródła, np. Allegro przez MCP. Awaria jednego źródła nie może blokować prezentacji danych zapisanych wcześniej.
+MVP działa jako modularny monolit FastAPI z Supabase jako trwałą pamięcią produktów, researchu, ogłoszeń, historii cen i sesji. Firecrawl przeszukujący OLX jest pierwszym i jedynym źródłem MVP, podłączonym przez ten sam kontrakt co przyszłe adaptery. Awaria źródła nie może blokować prezentacji danych zapisanych wcześniej.
 
 ## 2. Zakres MVP
 
 ### W zakresie
 
-- rozmowa z zachowaniem wymagań użytkownika;
+- rozmowa z zachowaniem wymagań użytkownika i produktu referencyjnego;
 - maksymalnie trzy pytania doprecyzowujące;
-- porównanie 4–6 modeli słuchawek;
+- dwa wejścia: opis potrzeby albo produkt referencyjny z krótką preferencją;
+- tani etap eksploracji maksymalnie 10 kandydatów, zwracający 4–6 modeli słuchawek;
 - wybór modelu i uruchomienie dwóch równoległych procesów: briefu zakupowego oraz pobierania ofert;
 - trwały zapis produktów, researchu i ogłoszeń w Supabase;
 - obsługa OLX przez istniejący scraper lub Firecrawl;
 - wspólny kontrakt pozwalający później dodać Allegro i inne portale;
 - jawny, ważony ranking ofert;
-- Top 10 z uzasadnieniami oraz wyróżniona najlepsza oferta;
+- Top 3–10 z osobną oceną produktu, oferty i sprzedawcy oraz wyróżniona najlepsza oferta;
 - ponowny ranking istniejących danych po zmianie preferencji;
 - ponowne pobieranie tylko wtedy, gdy baza nie wystarcza albo dane są nieaktualne.
 
@@ -50,13 +51,15 @@ LLM odpowiada za interpretację języka, uporządkowanie wymagań, research i sf
 
 1. Klient wysyła wiadomość wraz z `session_id`.
 2. Backend łączy wiadomość z zapisanym stanem i aktualizuje ustrukturyzowane wymagania.
-3. Jeżeli brakuje krytycznej informacji, agent zadaje jedno pytanie. W przeciwnym razie zwraca 4–6 modeli.
-4. Po wyborze modelu orkiestrator równolegle:
+3. Agent rozpoznaje produkt referencyjny i wnioskuje priorytety. Pyta tylko o jedną informację, jeżeli jej brak blokuje sensowną eksplorację.
+4. Tani research rozważa maksymalnie 10 kandydatów i zwraca 4–6 modeli z ceną, podobieństwami, różnicami i kompromisem. Lista nie jest finalnym rankingiem ofert.
+5. Użytkownik wybiera model lub kierunek `most_similar`, `best_quality`, `lowest_price` albo `best_value` bez resetowania sesji.
+6. Po wyborze modelu orkiestrator równolegle:
    - odczytuje lub generuje brief produktu;
    - sprawdza liczbę i świeżość ofert w Supabase.
-5. Jeśli baza zawiera wystarczające dane, ranking korzysta z cache. W przeciwnym razie backend pobiera oferty z dostępnych adapterów i zapisuje je przez `upsert`.
-6. Ranking wylicza wynik każdej oferty, a LLM formułuje krótkie uzasadnienia Top 10 na podstawie punktów składowych.
-7. Kolejny prompt jest klasyfikowany jako:
+7. Jeśli baza zawiera wystarczające dane, ranking korzysta z cache. W przeciwnym razie backend pobiera oferty z dostępnych adapterów i zapisuje je przez `upsert`.
+8. Ranking wylicza wynik każdej oferty oraz jawne składowe `product_match`, `offer_quality` i `seller_trust`.
+9. Kolejny prompt jest klasyfikowany jako:
    - `rerank` — istniejące dane zawierają wymaganą cechę;
    - `refetch` — danych jest za mało, są stare albo nowy filtr nie był pozyskiwany;
    - `new_product_research` — użytkownik zmienia kategorię lub oczekuje innego modelu.
@@ -75,7 +78,7 @@ class ListingSource(Protocol):
 
 `SearchQuery` zawiera model produktu, budżet, warianty, lokalizację i limit wyników. Adapter przekształca odpowiedź portalu do `RawListing`, a centralny normalizator tworzy `NormalizedListing`. Firecrawl jest narzędziem używanym wewnątrz adaptera, a nie osobnym elementem domeny.
 
-Pierwsza implementacja produkcyjna korzysta z działającego kodu OLX. Adapter Firecrawl może obsłużyć OLX jako plan awaryjny oraz inne publicznie dostępne strony. Allegro/MCP jest kolejnym adapterem i nie jest wymagane do ukończenia trzygodzinnego MVP.
+Pierwsza implementacja produkcyjna korzysta z Firecrawl przeszukującego OLX. Allegro/MCP jest kolejnym adapterem i nie jest wymagane do ukończenia trzygodzinnego MVP.
 
 ## 6. Model Supabase
 
@@ -160,6 +163,8 @@ Wagi są jawne i mogą być modyfikowane przez wymagania użytkownika. Twarde wy
 - `GET /health` — sprawdza backend i połączenie z Supabase.
 
 Dla MVP długie zadanie może być wykonane przez `asyncio.gather` i FastAPI `BackgroundTasks`. Stan zadania jest zapisany w `search_runs`, aby frontend mógł odpytywać o wynik. Brak zewnętrznej kolejki jest świadomym ograniczeniem prototypu.
+
+Odpowiedzi eksploracji i rankingu zawierają `source_url`, `retrieved_at`, `confidence` oraz `data_gaps` w zakresie danych zwróconych przez źródło. Brak danych jest informacją, nie sygnałem pozytywnym.
 
 ## 10. Obsługa błędów
 

@@ -21,11 +21,38 @@ def normalize_listing(raw: RawListing) -> NormalizedListing:
         color=_value(raw.attributes, "color", "kolor") or _color(text),
         location=_value(raw.attributes, "location", "lokalizacja", "city"),
         delivery=_delivery(raw.attributes, text),
+        exact_variant=_value(raw.attributes, "variant", "wariant", "version", "wersja"),
+        warranty=_value(raw.attributes, "warranty", "gwarancja"),
+        returns=_value(raw.attributes, "returns", "return", "zwrot"),
+        seller_signals={
+            key: value
+            for key, value in raw.attributes.items()
+            if _ascii(str(key)).casefold()
+            in {"seller_rating", "seller_reviews", "ocena_sprzedawcy", "liczba_opinii"}
+        },
         description=raw.description,
         attributes=raw.attributes,
         image_urls=raw.image_urls,
         raw_payload=raw.raw_payload,
+        confidence=0.8 if raw.description and raw.image_urls else 0.6,
+        data_gaps=_data_gaps(raw),
     )
+
+
+def _data_gaps(raw: RawListing) -> list[str]:
+    attributes = {_ascii(str(key)).casefold() for key in raw.attributes}
+    gaps: list[str] = []
+    if not raw.image_urls:
+        gaps.append("images")
+    if not raw.description:
+        gaps.append("description")
+    if not attributes & {"warranty", "gwarancja"}:
+        gaps.append("warranty")
+    if not attributes & {"returns", "return", "zwrot"}:
+        gaps.append("returns")
+    if not attributes & {"seller_rating", "ocena_sprzedawcy"}:
+        gaps.append("seller_signals")
+    return gaps
 
 
 def _parse_price(value: str) -> tuple[Decimal, Currency]:

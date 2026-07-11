@@ -96,10 +96,28 @@ def _score(
         ),
         reverse=True,
     )
+    seller_rating = listing.seller_signals.get("seller_rating")
+    try:
+        seller_trust = max(0.0, min(100.0, float(seller_rating) * 20))
+    except (TypeError, ValueError):
+        seller_trust = 40.0
+    product_match = round((req_score / 25 * 80) + (preference_score / 5 * 20), 2)
+    offer_quality = round(
+        (price / 30 * 35)
+        + (_CONDITION_POINTS[listing.condition] / 20 * 30)
+        + (completeness / 10 * 20)
+        + (logistics / 10 * 15),
+        2,
+    )
     return RankedListing(
         listing=listing,
         score=breakdown.total,
         score_breakdown=breakdown,
         strengths=[text for _, text in strengths[:3]],
         risk_or_tradeoff=risk,
+        product_match_score=product_match,
+        offer_quality_score=offer_quality,
+        seller_trust_score=seller_trust,
+        confidence=listing.confidence,
+        data_gaps=listing.data_gaps,
     )

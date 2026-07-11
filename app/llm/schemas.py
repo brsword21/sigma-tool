@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import Field, HttpUrl
 
-from app.domain.models import ChangeIntent, DomainModel, Requirements
+from app.domain.models import ChangeIntent, DomainModel, ReferenceProduct, Requirements
 
 
 class ProductSuggestion(DomainModel):
@@ -10,16 +10,26 @@ class ProductSuggestion(DomainModel):
     model: str
     estimated_used_price_pln: int = Field(gt=0)
     key_features: list[str] = Field(min_length=1, max_length=4)
+    similarity_reasons: list[str] = Field(default_factory=list, max_length=4)
+    differences: list[str] = Field(default_factory=list, max_length=4)
     why_it_fits: str
     tradeoff: str
     image_url: HttpUrl | None = None
+    source_url: HttpUrl | None = None
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    data_gaps: list[str] = Field(default_factory=list)
+
+    @property
+    def estimated_price(self) -> int:
+        return self.estimated_used_price_pln
 
 
 class ConversationOutput(DomainModel):
     requirements: Requirements
     missing_critical_information: bool
     question: str | None = None
-    suggestions: list[ProductSuggestion] = Field(default_factory=list, max_length=6)
+    reference_product: ReferenceProduct | None = None
+    suggestions: list[ProductSuggestion] = Field(default_factory=list, max_length=10)
     change_intent: ChangeIntent = ChangeIntent.RERANK
 
 

@@ -119,18 +119,18 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 
 **Planowane pliki:** `docs/superpowers/specs/2026-07-11-shopping-agent-backend-design.md`, `app/domain/models.py`, `app/llm/schemas.py`, `app/conversation/service.py`, `app/product_research/service.py`, `app/orchestration/search.py`, `app/api/sessions.py`, `app/api/runs.py`, `app/api/products.py`, `app/api/health.py`, `tests/conversation/test_reference_product.py`, `tests/product_research/test_similarity.py`, `tests/api/test_happy_path.py`, `tests/api/test_partial_failure.py`.
 
-- [ ] Scalić 2A, uruchomić cały zestaw testów, następnie scalić 2B i ponownie uruchomić testy.
-- [ ] Zaktualizować specyfikację backendu o dwa wejścia, produkt referencyjny, etap eksploracji i trzy osobne składowe oceny.
-- [ ] Rozszerzyć modele domenowe o `reference_product`, `search_direction`, `similarity_reasons`, `differences`, `estimated_price`, `exact_variant`, `seller_signals`, `warranty`, `returns`, `data_gaps`, `confidence` i metadane źródła.
-- [ ] Rozszerzyć structured output rozmowy tak, aby rozpoznawał produkt referencyjny, wnioskował priorytety i nie zadawał pytania, jeśli krótka wypowiedź wystarcza do pierwszego researchu.
-- [ ] Zaimplementować tani etap odkrywania maksymalnie 10 kandydatów i zwracać 4–6 propozycji z ceną, podobieństwami, różnicami oraz kompromisem.
-- [ ] Dodać wybór kierunku: `most_similar`, `best_quality`, `lowest_price`, `best_value`; wybór aktualizuje preferencje bez resetowania sesji.
-- [ ] Równolegle uruchamiać brief oraz sprawdzenie lub pobranie ofert przez `asyncio.gather` z izolacją wyjątków dopiero po wyborze modelu lub kierunku.
-- [ ] Uruchamiać dłuższy run przez `BackgroundTasks`, od razu zwracając `run_id`.
-- [ ] Zapisywać status, sukcesy i błędy źródeł w `search_runs`; nie nadpisywać użytecznego cache.
-- [ ] Wystawić endpointy ze specyfikacji i jednolity format odpowiedzi zawierający `source_url`, `retrieved_at`, `confidence` oraz `data_gaps`.
-- [ ] Przetestować dwa happy pathy: wejście od potrzeby i wejście „coś jak AirPods Pro, ale taniej”.
-- [ ] Przetestować zachowanie kontekstu po zmianie kierunku oraz przypadek, w którym źródło pada, lecz cache pozostaje dostępny.
+- [x] Scalić 2A, uruchomić cały zestaw testów, następnie scalić 2B i ponownie uruchomić testy.
+- [x] Zaktualizować specyfikację backendu o dwa wejścia, produkt referencyjny, etap eksploracji i trzy osobne składowe oceny.
+- [x] Rozszerzyć modele domenowe o `reference_product`, `search_direction`, `similarity_reasons`, `differences`, `estimated_price`, `exact_variant`, `seller_signals`, `warranty`, `returns`, `data_gaps`, `confidence` i metadane źródła.
+- [x] Rozszerzyć structured output rozmowy tak, aby rozpoznawał produkt referencyjny, wnioskował priorytety i nie zadawał pytania, jeśli krótka wypowiedź wystarcza do pierwszego researchu.
+- [x] Zaimplementować tani etap odkrywania maksymalnie 10 kandydatów i zwracać 4–6 propozycji z ceną, podobieństwami, różnicami oraz kompromisem.
+- [x] Dodać wybór kierunku: `most_similar`, `best_quality`, `lowest_price`, `best_value`; wybór aktualizuje preferencje bez resetowania sesji.
+- [x] Równolegle uruchamiać brief oraz sprawdzenie lub pobranie ofert przez `asyncio.gather` z izolacją wyjątków dopiero po wyborze modelu lub kierunku.
+- [x] Uruchamiać dłuższy run przez `BackgroundTasks`, od razu zwracając `run_id`.
+- [x] Zapisywać status, sukcesy i błędy źródeł w `search_runs`; nie nadpisywać użytecznego cache.
+- [x] Wystawić endpointy ze specyfikacji i jednolity format odpowiedzi zawierający `source_url`, `retrieved_at`, `confidence` oraz `data_gaps`.
+- [x] Przetestować dwa happy pathy: wejście od potrzeby i wejście „coś jak AirPods Pro, ale taniej”.
+- [x] Przetestować zachowanie kontekstu po zmianie kierunku oraz przypadek, w którym źródło pada, lecz cache pozostaje dostępny.
 
 **Brama:** oba punkty wejścia przechodzą na mockach do co najmniej trzech ofert, cena jest widoczna od pierwszej listy, a niepewne dane pozostają oznaczone.
 
