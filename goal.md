@@ -2,162 +2,210 @@
 
 ## 1. Cel produktu
 
-W ciągu 6 godzin budujemy działający prototyp agenta zakupowego, który pomaga osobie nieznającej się na elektronice:
+W ciągu 6 godzin budujemy działający prototyp agenta zakupowego, który pomaga osobie nieznającej się na elektronice przejść od krótkiej potrzeby lub znanego produktu referencyjnego do konkretnej, uzasadnionej i możliwie bezpiecznej decyzji zakupowej na rynku wtórnym.
 
-1. ustalić, jaki konkretny model produktu najlepiej odpowiada jej potrzebom;
-2. znaleźć pasujące oferty używane tego modelu;
-3. porównać oferty i wskazać najlepszy zakup wraz z krótkim uzasadnieniem.
+Agent powinien:
 
-Produkt ma skrócić drogę od ogólnej potrzeby — np. „szukam dobrych słuchawek do 500 zł” — do pewnej, uzasadnionej decyzji zakupowej.
+1. zrozumieć potrzebę albo zidentyfikować wskazany produkt referencyjny;
+2. znaleźć produkty podobne, tańsze lub lepiej dopasowane do priorytetów użytkownika;
+3. porównać właściwe warianty oraz konkretne oferty;
+4. oddzielnie ocenić dopasowanie produktu, jakość oferty i wiarygodność sprzedawcy;
+5. wskazać najlepszy zakup wraz ze źródłami, kompromisami i poziomem niepewności.
+
+Przykładowe wejścia:
+
+> Szukam dobrych słuchawek z ANC do 500 zł.
+
+> Chcę coś podobnego do AirPods Pro, ale taniej i niekoniecznie Apple.
 
 ## 2. Problem użytkownika
 
-Rynek używanej elektroniki jest rozproszony. Użytkownik musi osobno:
+Rynek używanej elektroniki jest rozproszony, niejednorodny i trudny do oceny. Użytkownik musi osobno:
 
-- zrozumieć, jakie modele spełniają jego wymagania;
+- zrozumieć, jakie modele spełniają jego potrzeby;
+- przełożyć znany produkt na cechy, których naprawdę szuka;
 - czytać recenzje, fora i porównania;
-- przeglądać wiele serwisów ogłoszeniowych;
-- oceniać cenę, stan, wiarygodność i opłacalność ofert;
-- rozpoznawać, czy tańszy zamiennik nie spełnia potrzeb równie dobrze.
+- porównywać ceny dokładnie tych samych wariantów;
+- przeglądać wiele serwisów ogłoszeniowych i sklepów;
+- oceniać stan, oryginalność, baterię, możliwość naprawy i kompletność oferty;
+- sprawdzać opinie, gwarancję, zwrot i wiarygodność sprzedawcy;
+- rozpoznawać nieaktualne, źle opisane lub podejrzane oferty.
 
-Osoba bez wiedzy technicznej często nie zna właściwych parametrów ani nazw modeli. Istnieją porównywarki nowej elektroniki, ale brakuje jednego wygodnego narzędzia prowadzącego przez wybór produktu i zakup z rynku wtórnego.
+Osoba bez wiedzy technicznej często nie zna parametrów ani nazw alternatywnych modeli. Produkt ma zdjąć z niej ciężar ręcznego researchu, nie ukrywając przy tym braków i niepewności danych.
 
 ## 3. Użytkownik docelowy
 
 Osoba, która:
 
-- chce kupić elektronikę możliwie tanio;
-- dopuszcza zakup rzeczy używanej;
-- nie śledzi rynku i nie zna wszystkich modeli;
-- potrafi opisać potrzebę, budżet i preferencje prostym językiem;
+- chce kupić elektronikę możliwie tanio i dopuszcza rynek wtórny;
+- zna ogólną potrzebę albo produkt, który jej się podoba;
+- nie śledzi rynku i nie potrafi samodzielnie porównać wszystkich wariantów;
 - oczekuje kilku trafnych propozycji zamiast setek wyników;
-- chce, aby narzędzie pomogło jej podjąć decyzję, a nie tylko pokazało linki.
-
-Przykład: użytkowniczka szuka bezprzewodowych słuchawek do 500 zł, zależy jej na wygodzie, ANC i niebieskim kolorze, ale nie zna konkretnych modeli.
+- chce ograniczyć ryzyko złego stanu, niewłaściwego wariantu lub niewiarygodnego sprzedawcy;
+- chce podjąć decyzję, a nie tylko otrzymać listę linków.
 
 ## 4. Obietnica wartości
 
-**Opisz, czego potrzebujesz. Agent wybierze właściwy model, znajdzie używane oferty i pokaże, którą warto kupić.**
+**Powiedz, czego potrzebujesz albo co Ci się podoba. Agent znajdzie podobne, lepiej dopasowane produkty i wskaże używaną ofertę, którą warto rozważyć.**
 
-Wyróżnikiem produktu jest połączenie dwóch dziś rozdzielonych zadań:
+Wyróżnikiem jest połączenie trzech rozdzielonych dziś zadań:
 
-- researchu produktowego: „co mam kupić?”;
-- wyszukiwania ofert: „gdzie i którą sztukę kupić?”.
+- researchu produktowego: „co spełni moje potrzeby?”;
+- wyszukiwania alternatyw: „co jest podobne, ale tańsze lub lepsze dla mnie?”;
+- oceny zakupu: „który wariant, oferta i sprzedawca są najbardziej wiarygodni?”.
 
-## 5. Główny przebieg użytkownika
+## 5. Zasady doświadczenia użytkownika
 
-### Faza 1: wybór modelu
+- Jak najmniej pracy po stronie użytkownika.
+- Jedna spójna rozmowa z zachowaniem kontekstu.
+- Automatyczne wnioskowanie preferencji z krótkiej wypowiedzi.
+- Maksymalnie trzy pytania doprecyzowujące w sesji.
+- Cena widoczna już przy pierwszych propozycjach.
+- Proste kierunki wyboru zamiast rozbudowanego formularza wag.
+- Jasne oznaczenie, że pierwsza lista służy eksploracji, a nie jest ostatecznym rankingiem.
+- Wyraźne komunikowanie źródeł, braków danych i niepewności.
 
-1. Użytkownik opisuje potrzebę własnymi słowami.
-2. Agent aktywnie dopytuje tylko o informacje istotne dla decyzji, np. budżet, zastosowanie i najważniejsze cechy.
-3. Agent przedstawia krótką listę 4–6 modeli z:
+## 6. Główny przebieg użytkownika
+
+### Faza 1: rozpoznanie i wybór kierunku
+
+1. Użytkownik opisuje potrzebę albo wskazuje produkt referencyjny i krótkie oczekiwanie.
+2. Agent identyfikuje produkt, jego charakterystyczne cechy, typową cenę i zastosowanie.
+3. Agent wnioskuje priorytety i pyta tylko o krytyczny brak.
+4. Wykonuje ograniczony, tani research i przedstawia 4–6 modeli z:
    - nazwą i zdjęciem, jeśli jest dostępne;
    - orientacyjną ceną;
-   - najważniejszymi cechami;
+   - stopniem oraz powodami podobieństwa;
+   - najważniejszymi różnicami;
    - krótkim „dlaczego pasuje”;
-   - najważniejszym kompromisem.
-4. Użytkownik wybiera jeden model lub prosi o zmianę pojedynczego wymagania.
-5. Kontekst rozmowy zostaje zachowany — nie trzeba zaczynać od zera.
+   - głównym kompromisem.
+5. Użytkownik wybiera model albo kierunek: najbardziej podobny, najlepsza jakość, najniższa cena lub najlepszy stosunek ceny do jakości.
+6. Kontekst rozmowy zostaje zachowany przy zmianie pojedynczej preferencji.
 
-### Faza 2: wybór oferty
+### Faza 2: pełne porównanie ofert
 
-1. Po wskazaniu modelu agent uruchamia wyszukiwanie ofert używanych.
+1. Agent uruchamia dokładniejszy research wybranych produktów i wyszukiwanie ofert.
 2. Zbiera ograniczoną liczbę aktualnych ofert z dostępnego źródła lub źródeł.
-3. Normalizuje podstawowe dane: cena, stan, wariant, lokalizacja/dostawa, opis i link.
-4. Ocenia oferty pod kątem zgodności z potrzebą i opłacalności.
-5. Pokazuje 3–5 najlepszych wyników oraz rekomenduje jedną ofertę z uzasadnieniem.
+3. Normalizuje cenę, stan, wariant, lokalizację lub dostawę, gwarancję, zwrot, sprzedawcę, opis, link i czas aktualizacji — o ile dane są dostępne.
+4. Odrzuca oferty niespełniające twardych wymagań lub dotyczące niewłaściwego wariantu.
+5. Oddzielnie ocenia produkt, ofertę i wiarygodność sprzedawcy.
+6. Pokazuje 3–5 najlepszych wyników, rekomenduje jedną ofertę oraz wskazuje zalety, kompromisy, ryzyka i braki danych.
 
-## 6. Zakres MVP na hackathon
+## 7. Zakres MVP na hackathon
 
 ### Must have
 
 - interfejs rozmowy z zachowaniem kontekstu;
-- obsługa jednej kategorii demonstracyjnej, najlepiej słuchawek;
-- przyjęcie potrzeby i zadanie pytań doprecyzowujących;
-- rekomendacja kilku konkretnych modeli;
-- wybór modelu przez użytkownika;
-- pobranie lub wykorzystanie przygotowanego zestawu ofert używanych;
-- ranking ofert według ceny, zgodności i jakości;
-- wskazanie najlepszej oferty z czytelnym uzasadnieniem;
-- klikalny link do źródła oferty;
-- pełny, stabilny scenariusz demonstracyjny od potrzeby do decyzji.
+- obsługa jednej kategorii demonstracyjnej — słuchawek;
+- dwa wejścia: potrzeba użytkownika oraz nazwa produktu referencyjnego;
+- identyfikacja produktu referencyjnego i jego najważniejszych cech;
+- automatyczne wnioskowanie preferencji oraz maksymalnie trzy pytania;
+- 4–6 kandydatów z ceną, podobieństwami, różnicami i kompromisem;
+- wybór produktu lub prostego kierunku dalszego wyszukiwania;
+- pobranie albo użycie przygotowanego zestawu ofert;
+- kontrola dokładnego wariantu;
+- oddzielne składowe oceny produktu, oferty i sprzedawcy w zakresie dostępnych danych;
+- sygnały ryzyka oraz jawne oznaczenie danych nieznanych;
+- co najmniej trzy oferty z linkami, źródłami i czasem pozyskania;
+- rekomendacja jednej opcji z czytelnym uzasadnieniem;
+- stabilny scenariusz od krótkiego promptu do decyzji.
 
 ### Should have, jeśli zostanie czas
 
-- porównanie ceny używanej z ceną nowego produktu;
-- możliwość zmiany jednego parametru bez resetowania rozmowy;
-- wyszukiwanie podobnego, tańszego zamiennika;
-- sygnały ryzyka w ofercie, np. brak ważnych informacji lub podejrzanie niska cena;
-- zapis wyników researchu, aby nie wykonywać ponownie tej samej pracy.
+- porównanie ceny używanej z nowym produktem;
+- opinie, gwarancja i zwrot pozyskane z realnego źródła;
+- zmiana kierunku rankingu bez ponownego pobierania danych;
+- porównanie więcej niż jednego modelu w pełnym etapie;
+- zapis researchu i ofert do ponownego użycia;
+- drugi adapter źródła, np. eBay, jeśli nie opóźni demo.
 
 ### Poza zakresem MVP
 
 - pełne pokrycie wszystkich kategorii elektroniki;
+- własna kompletna baza urządzeń;
 - niezawodne skrapowanie wielu platform w czasie rzeczywistym;
-- zakupy lub płatności wewnątrz aplikacji;
-- długoterminowe uczenie się preferencji wszystkich użytkowników;
-- zaawansowany system kont, profili i powiadomień;
-- perfekcyjne wykrywanie oszustw;
-- rozbudowany silnik matematyczny, jeżeli prosty scoring wystarczy do demo.
+- ręczne ustawianie rozbudowanych wag każdego kryterium;
+- zakupy lub płatności w aplikacji;
+- długoterminowe uczenie preferencji wszystkich użytkowników;
+- perfekcyjne wykrywanie oszustw, fałszywek lub stanu baterii;
+- podobieństwo wizualne na podstawie zdjęcia;
+- zaawansowany model uczenia maszynowego, jeśli jawny scoring wystarczy.
 
-## 7. Logika rekomendacji
+## 8. Logika rekomendacji
 
-Na etapie wyboru modelu ranking powinien uwzględniać:
+### Ocena produktu
 
-- zgodność z budżetem;
-- zgodność z zastosowaniem;
-- wymagane cechy;
-- preferencje miękkie, np. kolor, wygląd lub marka;
+- podobieństwo do produktu referencyjnego;
+- zgodność z budżetem, zastosowaniem i wymaganymi funkcjami;
+- jakość, funkcjonalność i bateria;
+- preferencje miękkie, np. marka, kolor lub wygląd;
+- naprawialność i dostępność części;
 - dostępność na rynku wtórnym;
-- jakość i wiarygodność modelu wynikającą z researchu.
+- jakość oraz wiarygodność opinii.
 
-Na etapie wyboru oferty ranking powinien uwzględniać:
+### Ocena oferty
 
-- cenę względem typowej ceny rynkowej;
-- deklarowany stan;
-- kompletność opisu;
-- zgodność wariantu z wymaganiami;
-- dostawę lub lokalizację;
-- widoczne czynniki ryzyka.
+- cena względem typowej ceny właściwego wariantu;
+- deklarowany stan i kompletność informacji;
+- oryginalność produktu lub części, jeśli można ją zweryfikować;
+- zgodność wariantu, np. generacji, koloru lub wersji;
+- gwarancja, zwrot, dostawa i lokalizacja;
+- aktualność oraz dostępność;
+- sygnały ryzyka i dane nieznane.
 
-Na hackathon wystarczy przejrzysty scoring ważony. Użytkownik powinien widzieć ludzkie uzasadnienie, nie sam wynik liczbowy.
+### Ocena sprzedawcy lub źródła
 
-## 8. Założenia techniczne MVP
+- zweryfikowane opinie i ich liczba;
+- historia lub liczba sprzedaży;
+- warunki reklamacji i odpowiedzialność sprzedawcy;
+- wiarygodność źródła i spójność informacji.
 
-- model językowy prowadzi rozmowę, porządkuje wymagania i generuje uzasadnienia;
+Na hackathon wystarczy przejrzysty scoring ważony. Użytkownik powinien widzieć trzy składowe oraz ludzkie uzasadnienie, nie jedną pozornie precyzyjną liczbę. Brak danych nie może być automatycznie traktowany jako pozytywny sygnał.
+
+## 9. Założenia techniczne MVP
+
+- model językowy interpretuje intencję, identyfikuje wzorzec, porządkuje wymagania i generuje wyjaśnienia;
+- kod aplikacji kontroluje źródła, cache, twarde filtry, warianty i scoring;
+- wszystkie fakty produktowe i ofertowe przechowują źródło oraz czas pozyskania;
 - dane ofert pochodzą z jednego działającego źródła albo kontrolowanego zestawu demonstracyjnego;
-- warstwa pobierania danych jest oddzielona od logiki rekomendacji, aby później łatwo dodać kolejne serwisy;
-- aplikacja przechowuje stan sesji i wybrane preferencje;
-- kosztowne, głębokie analizy uruchamiane są dopiero po zawężeniu wyboru;
-- wcześniejsze wyniki mogą być buforowane, ale cache nie może blokować ukończenia głównego scenariusza.
+- warstwa źródeł jest oddzielona od logiki rekomendacji;
+- aplikacja przechowuje etap sesji, produkt referencyjny, wybrany kierunek i preferencje;
+- pierwszy etap używa małej liczby kandydatów, a kosztowna analiza rusza dopiero po zawężeniu;
+- wyniki mogą być buforowane, ale cache nie może blokować ukończenia głównego scenariusza;
+- backend demo działa lokalnie i korzysta z zewnętrznych API bez wymagania pełnej infrastruktury chmurowej;
+- gdy dane są niepełne lub sprzeczne, API zwraca poziom pewności lub listę braków.
 
-## 9. Kryteria ukończenia
+## 10. Kryteria ukończenia
 
 MVP jest gotowe, gdy podczas demo można bez ręcznego omijania błędów:
 
-1. wpisać ogólną potrzebę zakupową;
-2. odpowiedzieć na pytania agenta;
-3. otrzymać co najmniej 4 sensowne modele z uzasadnieniem;
-4. wybrać model;
-5. otrzymać co najmniej 3 konkretne oferty używane;
-6. zobaczyć rekomendowaną ofertę i powód wyboru;
-7. przejść linkiem do ogłoszenia;
-8. zmienić jedno wymaganie bez utraty całego kontekstu.
+1. wpisać „coś jak AirPods Pro, ale taniej” albo ogólną potrzebę;
+2. otrzymać maksymalnie trzy trafne pytania doprecyzowujące;
+3. zobaczyć co najmniej cztery sensowne modele z ceną, podobieństwami i kompromisami;
+4. wybrać model lub kierunek rekomendacji;
+5. otrzymać co najmniej trzy konkretne oferty właściwego wariantu;
+6. zobaczyć oddzielną ocenę produktu, oferty i sprzedawcy w zakresie dostępnych danych;
+7. zobaczyć rekomendację, źródła, czas pozyskania, ryzyka i braki danych;
+8. przejść linkiem do oferty;
+9. zmienić jeden priorytet bez utraty całego kontekstu.
 
-## 10. Metryki sukcesu prototypu
+## 11. Metryki sukcesu prototypu
 
 - użytkownik dochodzi od pierwszego promptu do rekomendacji w mniej niż 3 minuty;
-- liczba niezbędnych pytań doprecyzowujących nie przekracza 3;
-- każda rekomendacja zawiera jasne „dlaczego tak” oraz kompromis;
+- liczba niezbędnych pytań nie przekracza 3;
+- pierwsza lista zawiera cenę i co najmniej jedną różnicę względem wzorca;
+- każda finalna rekomendacja zawiera „dlaczego tak”, kompromis, ryzyko i źródło;
+- niewłaściwy wariant nie trafia do finalnego rankingu;
+- system jawnie oznacza brak danych zamiast tworzyć niepotwierdzone fakty;
 - cały happy path działa powtarzalnie podczas prezentacji;
-- jury rozumie różnicę między produktem a zwykłą porównywarką cen po jednym zdaniu.
+- jury rozumie po jednym zdaniu różnicę względem chatbota i porównywarki cen.
 
-## 11. Scenariusz demo
+## 12. Scenariusz demo
 
-> Szukam używanych słuchawek bezprzewodowych do 500 zł. Będę ich używać w komunikacji miejskiej i podczas pracy. Zależy mi na ANC, wygodzie i niebieskim kolorze.
+> Chcę słuchawki podobne do AirPods Pro, z dobrym ANC, ale tańsze i niekoniecznie Apple.
 
-Agent dopytuje o konstrukcję lub priorytet, proponuje kilka modeli, użytkownik wybiera jeden, a system pokazuje najlepsze używane oferty i rekomenduje zakup. Następnie użytkownik mówi: „te są za drogie, znajdź podobne tańsze”, demonstrując zachowanie kontekstu i możliwość znalezienia zamiennika.
+Agent identyfikuje wzorzec, pokazuje 4–6 alternatyw z cenami, podobieństwami i różnicami. Użytkownik wybiera „najlepszy stosunek ceny do jakości”. System wyszukuje konkretne używane oferty, sprawdza warianty i pokazuje oddzielnie dopasowanie produktu, jakość oferty oraz wiarygodność sprzedawcy. Następnie użytkownik mówi: „ważniejsza jest gwarancja niż najniższa cena”, a ranking aktualizuje się bez utraty kontekstu.
 
-## 12. Najważniejsza decyzja produktowa
+## 13. Najważniejsza decyzja produktowa
 
-Najpierw dowozimy jeden kompletny i efektowny przepływ dla jednej kategorii. Szerokość katalogu, liczba źródeł i zaawansowanie algorytmu są mniej ważne niż wiarygodna demonstracja, że agent potrafi przeprowadzić użytkownika od niejasnej potrzeby do konkretnej oferty.
+Najpierw dowozimy jeden kompletny przepływ dla słuchawek i jednego rozpoznawalnego produktu referencyjnego. Wiarygodna demonstracja przejścia od „coś jak ten produkt, ale lepiej dla mnie” do konkretnej oferty jest ważniejsza niż szerokość katalogu, liczba źródeł i złożoność algorytmu.

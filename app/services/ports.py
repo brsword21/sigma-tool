@@ -18,4 +18,3 @@ class LLMClient(Protocol):
 
 class Clock(Protocol):
     def now(self) -> datetime: ...
-

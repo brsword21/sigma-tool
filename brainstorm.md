@@ -1,164 +1,209 @@
-# Burza mózgów przed hackathonem — przebieg i ustalenia
+# Burza mózgów przed hackathonem — scalone ustalenia
 
-## Kontekst spotkania
+## Kontekst
 
-Zespół szukał pomysłu na produkt możliwy do zbudowania podczas hackathonu. Rozmowa była prowadzona najpierw w trybie swobodnego generowania pomysłów, a dopiero później miała przejść do oceny realności i implementacji. Ze względu na ograniczony czas zespół przyjął, że warto szybko wybrać obiecujący kierunek, rozpocząć budowę uniwersalnego szkieletu i równolegle zweryfikować założenia rynkowe.
+Zespół szuka produktu możliwego do pokazania podczas hackathonu. Pierwszy brainstorm wskazał używaną elektronikę i dwuetapowy agentowy proces zakupowy. Drugi doprecyzował główny przypadek użycia: użytkownik może wskazać produkt referencyjny i poprosić o podobną, tańszą lub lepiej dopasowaną alternatywę. Poniższy dokument scala oba spotkania i rozdziela decyzje MVP od późniejszej roadmapy.
 
-## 1. Punkt wyjścia: rynek rzeczy używanych
+## Key takeaways z brainstormu 2
 
-Rozmowa zaczęła się od obserwacji, że konsumenci coraz częściej odchodzą od potrzeby posiadania nowych rzeczy na rzecz korzystania z rzeczy używanych. Jako przykłady pojawiły się Vinted, odzież vintage oraz ogólna presja na oszczędzanie.
+1. **Produkt referencyjny staje się ważnym punktem wejścia.** Użytkownik może napisać „coś jak AirPods Pro, ale taniej”, zamiast znać parametry techniczne.
+2. **Minimalny wysiłek użytkownika jest nadrzędną zasadą UX.** System sam identyfikuje wzorzec, wnioskuje priorytety i pyta tylko o brakujące informacje, które realnie zmieniają wynik.
+3. **Cena musi być widoczna od pierwszej listy kandydatów.** Wstępne propozycje służą wyborowi kierunku, ale powinny być ocenialne ekonomicznie.
+4. **Wyszukiwanie pozostaje dwuetapowe.** Najpierw ograniczony, tani research kandydatów, a po doprecyzowaniu preferencji pełniejsze porównanie produktów i konkretnych ofert.
+5. **Ranking należy rozdzielić na trzy warstwy:** dopasowanie produktu, jakość konkretnej oferty oraz wiarygodność sprzedawcy lub źródła.
+6. **Specyfikacja i cena nie wystarczą.** Rekomendacja powinna uwzględniać m.in. opinie, gwarancję, zwrot, stan, baterię, oryginalność części, naprawialność, aktualność i dokładny wariant.
+7. **Nie budujemy kompletnej bazy elektroniki na potrzeby demo.** Korzystamy z danych pozyskanych z istniejących źródeł i kontrolujemy liczbę zapytań oraz koszt modeli.
+8. **Demo pozostaje wąskie.** Jedna kategoria i jeden mocny scenariusz mają pierwszeństwo przed wieloma kategoriami, źródłami i pełną uniwersalnością.
+9. **Niepewność jest częścią wyniku.** Brak danych, sprzeczne informacje lub nieweryfikowalne deklaracje muszą być jawnie komunikowane, a nie maskowane pewnym językiem.
 
-Rozważano, czy dane z platform ogłoszeniowych da się pobierać automatycznie. Pojawiły się obawy o dostępność API i blokowanie skrapowania, znane m.in. z innych platform. Ustalono jednak, że na etapie generowania pomysłów nie należy odrzucać kierunku tylko z powodu niezweryfikowanych ograniczeń technicznych. Jedna z osób deklarowała wcześniejsze testy wskazujące, że pobieranie danych może być możliwe.
+## 1. Problem i wybrany rynek
 
-## 2. Moda kontra elektronika
+Punktem wyjścia był rosnący rynek rzeczy używanych i presja na oszczędzanie. Moda została odrzucona jako pierwsza kategoria dla agenta, ponieważ wybór jest silnie wizualny, subiektywny i oparty na przyjemności przeglądania katalogu.
 
-Początkowo jako naturalny rynek rzeczy używanych rozważano modę. Zespół uznał jednak, że moda jest trudniejszym punktem wejścia dla agenta rekomendacyjnego:
+Elektronika jest lepszym punktem wejścia, ponieważ:
 
-- wybór jest silnie wizualny i subiektywny;
-- użytkownicy lubią samodzielnie przeglądać dużą liczbę rzeczy;
-- styl, kolor i indywidualny gust trudno sprowadzić do krótkiego zestawu parametrów;
-- sam wynik wygenerowany na podstawie promptu może być mniej satysfakcjonujący niż przeglądanie katalogu.
+- użytkownicy często nie znają modeli ani znaczenia parametrów;
+- potrzeby można opisać przez budżet, zastosowanie i oczekiwane cechy;
+- decyzja wymaga researchu, który użytkownik chętnie deleguje;
+- rynek wtórny jest rozproszony i bardziej ryzykowny niż zakup nowego produktu;
+- istniejące porównywarki koncentrują się głównie na nowych produktach.
 
-Elektronika została oceniona jako lepsza kategoria startowa, ponieważ:
+Roboczą kategorią pozostaje używana elektronika użytkowa, a rekomendowaną kategorią demonstracyjną są słuchawki.
 
-- wiele osób nie zna aktualnych modeli i parametrów;
-- użytkownicy chętnie korzystają z recenzji i poradników;
-- potrzeby da się opisać przez budżet, zastosowanie i cechy;
-- część decyzji użytkownik chętnie deleguje ekspertowi lub agentowi;
-- rynek wtórny jest rozproszony, podczas gdy dla nowych produktów istnieją już porównywarki, np. Ceneo.
+## 2. Dwa równorzędne punkty wejścia
 
-Wniosek: głównym kierunkiem została używana elektronika użytkowa.
+Użytkownik może rozpocząć rozmowę na dwa sposoby:
 
-## 3. Odkrycie dwóch osobnych problemów
+1. **Od potrzeby:** „Szukam wygodnych słuchawek z ANC do 500 zł”.
+2. **Od produktu referencyjnego:** „Chcę coś podobnego do AirPods Pro, ale taniej i niekoniecznie Apple”.
 
-W toku rozmowy zespół zauważył, że użytkownik może przyjść w dwóch różnych sytuacjach:
+Obie ścieżki prowadzą do tego samego rezultatu: krótkiej listy produktów dopasowanych do potrzeb, a następnie rankingu konkretnych ofert. Produkt referencyjny jest skrótem opisującym oczekiwany poziom jakości, funkcje, wygląd lub doświadczenie, a nie sztywnym wymaganiem marki.
 
-1. nie wie, jaki produkt lub model powinien kupić;
-2. zna konkretny model i chce znaleźć najlepszą ofertę.
+## 3. Docelowy przepływ użytkownika
 
-Zamiast łączyć wszystko w jedno kosztowne wyszukiwanie, zaproponowano dwie następujące po sobie fazy.
+### Etap 1: rozpoznanie intencji
 
-### Faza 1: research i wybór modelu
+- Agent rozpoznaje potrzebę albo identyfikuje produkt referencyjny.
+- Pobiera lub odczytuje jego podstawowe cechy, typową cenę, zastosowanie i charakterystyczne funkcje.
+- Automatycznie wnioskuje prawdopodobne priorytety użytkownika.
+- Zadaje najwyżej jedno pytanie naraz i tylko wtedy, gdy odpowiedź istotnie zmieni rekomendację.
 
-Użytkownik opisuje potrzebę, np. „szukam słuchawek”. Agent zbiera podstawowe wymagania i pokazuje kilka modeli mieszczących się w budżecie. Na tym etapie informacje mają być wystarczające do wstępnej selekcji, ale nie przesadnie szczegółowe.
+### Etap 2: szybkie wyszukanie kandydatów
 
-W rozmowie pojawiła się także propozycja pokazania nawet kilkunastu lub kilkudziesięciu podobnych produktów, z których użytkownik wybierze kilka do dalszej analizy. Ostateczny kierunek MVP powinien jednak ograniczać listę, aby interfejs i koszty analizy pozostały pod kontrolą.
+- System wykonuje ograniczoną liczbę zapytań, docelowo około 10 dla demo.
+- Pokazuje 4–6 kandydatów z nazwą lub zdjęciem, orientacyjną ceną, podobieństwami, różnicami, uzasadnieniem i głównym kompromisem.
+- Lista jest wyraźnie oznaczona jako etap wyboru kierunku, a nie ostateczna rekomendacja.
+- Cena jest pokazywana od początku.
 
-### Faza 2: głęboka analiza i wyszukiwanie ofert
+### Etap 3: szybkie doprecyzowanie
 
-Dopiero po wyborze modelu system wykonuje dokładniejszy research, pobiera konkretne ogłoszenia i analizuje cenę, stan, dostawę oraz inne szczegóły ważne dla użytkownika. Dzięki temu agent nie zużywa czasu i zasobów na szczegółową analizę wielu produktów, które zaraz zostaną odrzucone.
+Użytkownik wybiera kierunek za pomocą prostych opcji, np.:
 
-To rozdzielenie zostało uznane za jedną z najważniejszych decyzji produktowych.
+- najbardziej podobny;
+- najlepsza jakość;
+- najniższa cena;
+- najlepszy stosunek ceny do jakości;
+- priorytet baterii, ANC, marki, gwarancji lub opinii.
 
-## 4. Forma interakcji: aktywny agent z pamięcią kontekstu
+Zmiana pojedynczej preferencji nie resetuje rozmowy ani wcześniejszego researchu.
 
-Rozważano dwa interfejsy:
+### Etap 4: pełne porównanie
 
-- niezależne bloki „prompt → odpowiedź”, resetowane po każdym zapytaniu;
-- ciągłą rozmowę, w której system pamięta wcześniejsze wymagania.
+Po wyborze kierunku system dokładniej analizuje wybrane modele i konkretne oferty. Normalizuje dane, odrzuca niezgodne warianty, ocenia ryzyko i zwraca krótki ranking wraz ze źródłami oraz informacją o niepewności.
 
-Zespół skłonił się ku rozmowie z pamięcią. Użytkownik powinien móc doprecyzować pojedynczą cechę — np. „jednak chcę niebieskie” — bez ponownego wpisywania całego zapytania i generowania całego raportu od zera.
+## 4. Zasady UX
 
-Agent nie powinien być bierny. Ma zadawać pytania, gdy brakuje informacji potrzebnych do dobrej rekomendacji. Jednocześnie liczba pytań musi być mała, aby rozmowa nie stała się przeszkodą.
+- Jak najmniej pracy po stronie użytkownika.
+- Jedna spójna rozmowa lub jeden ciągły ekran, bez fałszywego poczucia zakończenia po pierwszej liście.
+- Zachowanie kontekstu i możliwość korekty jednej cechy.
+- Proste wybory zamiast rozbudowanego formularza wag.
+- Aktywny agent, ale maksymalnie trzy pytania doprecyzowujące w całej sesji.
+- Krótkie listy i czytelne kompromisy zamiast setek wyników.
+- Wyraźne oddzielenie faktów, wniosków i informacji niepewnych.
 
-## 5. Pomysł na zamienniki i produkty podobne
+## 5. Model oceny
 
-Zwrócono uwagę, że użytkownicy często nie szukają konkretnego produktu, lecz czegoś podobnego i tańszego. Przykładem były produkty wybierane również ze względu na wygląd lub konkretny detal wzorniczy.
+### Dopasowanie produktu
 
-Powstał pomysł funkcji, w której użytkownik wskazuje produkt i prosi o:
+- podobieństwo do produktu referencyjnego;
+- zgodność z zastosowaniem i wymaganymi funkcjami;
+- jakość wykonania i funkcjonalność;
+- bateria;
+- marka, wygląd i inne preferencje miękkie;
+- naprawialność oraz dostępność części;
+- dostępność na rynku wtórnym;
+- cena właściwego wariantu.
 
-- tańszy odpowiednik;
-- podobny wygląd;
-- zachowanie konkretnych cech;
-- lepsze dopasowanie do wcześniejszych wymagań.
+### Jakość oferty
 
-Funkcja została oceniona jako potencjalny „game changer”, ale w kontekście hackathonu jest rozszerzeniem głównego przepływu, a nie warunkiem działania MVP.
+- cena względem rynku;
+- deklarowany i możliwy do potwierdzenia stan;
+- kompletność opisu i zdjęć;
+- oryginalność produktu i części;
+- dokładność wariantu, np. generacji, koloru lub pamięci;
+- gwarancja i możliwość zwrotu;
+- aktualność i dostępność;
+- dostawa lub lokalizacja;
+- jawne sygnały ryzyka i braki danych.
 
-## 6. Pamięć wyników i ograniczenie kosztów
+### Wiarygodność sprzedawcy lub źródła
 
-Pojawiła się propozycja zapisywania wykonanych researchów i pobranych danych, aby kolejne zapytania nie wymagały ponownego skrapowania i analizy tych samych produktów. Jako potencjalne miejsce przechowywania wskazano Supabase.
+- zweryfikowane opinie i ich liczba;
+- historia lub liczba sprzedaży;
+- wiarygodność sklepu albo sprzedawcy;
+- odpowiedzialność sprzedawcy i warunki reklamacji;
+- spójność informacji pomiędzy źródłami.
 
-Argumenty za:
+W MVP wystarczy jawny scoring ważony. Ocena produktu nie może być mieszana w jedną nieczytelną liczbę z oceną ogłoszenia i sprzedawcy; interfejs powinien pokazać trzy składowe oraz ludzkie uzasadnienie.
 
-- przechowywanie danych jest tanie;
-- ponowne pobieranie i parsowanie może być wolniejsze oraz droższe;
-- baza może z czasem zwiększać jakość i szybkość odpowiedzi.
+## 6. Dane i źródła
 
-Jednocześnie zespół zauważył, że nie jest to potrzebne w pierwszej wersji backendu. Priorytetem powinien pozostać kompletny przepływ użytkownika.
+Nie istnieje jedna kompletna, darmowa baza urządzeń i ofert. Demo nie będzie takiej bazy budować. Dane produktowe i ofertowe mają pochodzić z istniejących stron, producentów, sklepów, porównywarek lub marketplace'ów.
 
-## 7. Ranking ofert
+Ustalenia:
 
-Po pobraniu ofert system ma wybrać najlepszą według zmiennych podanych przez użytkownika. W rozmowie padł pomysł wykorzystania bardziej zaawansowanego modelu lub „korelacji nieliniowej”, częściowo na bazie rozwiązania z wcześniejszego projektu.
+- pierwszy przepływ może działać na jednym stabilnym źródle lub kontrolowanym zestawie danych;
+- eBay jest kandydatem do późniejszej integracji ze względu na dostęp do API, ale nie może blokować demo;
+- każde nowe źródło wymaga weryfikacji regulaminu, stabilności i zakresu danych;
+- dane z wielu źródeł muszą być normalizowane do wspólnego modelu;
+- wyniki researchu i pobrane oferty można buforować w Supabase;
+- pełne przeszukiwanie uruchamia się dopiero po wyborze kierunku;
+- system przechowuje źródło, czas pobrania i poziom pewności danych.
 
-Nie ustalono konkretnego algorytmu. Istotą pomysłu jest jednak wielokryterialna ocena ofert, a nie sortowanie wyłącznie po cenie. Dla prototypu prosty, jawny scoring może dać lepszy stosunek efektu do czasu niż skomplikowany model.
+## 7. Pozycjonowanie produktu
 
-## 8. Wyróżnienie na tle rynku
+Produkt nie jest kolejną porównywarką cen ani zwykłym chatbotem. Łączy:
 
-Zespół podkreślił, że produkt nie powinien być kolejną porównywarką nowych produktów. Ten problem jest już dobrze obsługiwany przez istniejące serwisy agregujące sklepy.
+- zrozumienie nieprecyzyjnej potrzeby;
+- użycie znanego produktu jako wzorca;
+- znalezienie podobnej, tańszej lub lepiej dopasowanej alternatywy;
+- wybór modelu i konkretnej sztuki na rynku wtórnym;
+- ocenę produktu, oferty i sprzedawcy;
+- aktywną rozmowę z pamięcią kontekstu;
+- uzasadnienie rekomendacji i komunikowanie ryzyka.
 
-Przewaga ma wynikać z:
+Najbardziej zapamiętywalny komunikat dla jury: **„Powiedz, co Ci się podoba, a agent znajdzie podobną, tańszą i bezpieczniejszą opcję na rynku wtórnym.”**
 
-- skupienia na elektronice używanej;
-- połączenia rekomendacji modelu z wyszukiwaniem konkretnej sztuki;
-- aktywnej rozmowy doprecyzowującej potrzeby;
-- oceny ofert według wielu kryteriów;
-- możliwości znalezienia podobnego, tańszego produktu.
+## 8. Decyzje produktowe
 
-Padła też sugestia, że bardziej niszowy i jednoznaczny przypadek użycia może być łatwiejszy do zapamiętania przez jury niż bardzo szeroka aplikacja zakupowa.
+1. Demo obsługuje jedną kategorię — słuchawki.
+2. Wiodącym produktem referencyjnym są AirPods Pro lub równoważny, łatwo rozpoznawalny model.
+3. Obsługujemy wejście od potrzeby i od produktu referencyjnego.
+4. Przepływ pozostaje dwuetapowy: tani research kandydatów, potem pełna analiza ofert.
+5. Pierwsza lista pokazuje ceny i nie jest przedstawiana jako wynik ostateczny.
+6. Agent automatycznie wnioskuje preferencje i ogranicza liczbę pytań.
+7. Ranking rozdziela dopasowanie produktu, ofertę i sprzedawcę.
+8. Opinie, gwarancja, zwrot, dokładny wariant oraz niepewność danych są istotnymi sygnałami.
+9. Backend demo działa lokalnie i korzysta z zewnętrznych API lub kontrolowanych danych.
+10. Kompletna baza urządzeń, wiele kategorii i zaawansowany model rankingu nie są wymagane do demo.
 
-## 9. Podejście do walidacji
+## 9. Minimalny zakres MVP
 
-Ustalono, że dwie osoby wykonają szybki research rynku elektroniki używanej, aby sprawdzić założenia na realnych danych. Research ma odpowiedzieć przede wszystkim na pytania:
+MVP powinno:
 
-- czy problem jest wystarczająco wyraźny;
-- jakie rozwiązania już istnieją;
-- gdzie jest największa luka;
-- która wąska kategoria nadaje się najlepiej do demonstracji;
-- z jakich źródeł można realnie pozyskać oferty.
+- przyjąć nazwę produktu referencyjnego lub opis potrzeby;
+- rozpoznać kategorię, wzorzec i krótką preferencję;
+- pobrać podstawowy opis produktu referencyjnego wraz ze źródłami;
+- wywnioskować priorytety i zadać tylko konieczne pytanie;
+- znaleźć 4–6 podobnych produktów;
+- od początku pokazać orientacyjną cenę, podobieństwa i różnice;
+- pozwolić użytkownikowi wybrać kierunek dalszego wyszukiwania;
+- znaleźć co najmniej trzy konkretne oferty dla wybranego kierunku;
+- sprawdzić dokładny wariant;
+- oddzielnie ocenić produkt, ofertę i wiarygodność sprzedawcy na podstawie dostępnych danych;
+- pokazać ryzyka, niepewność, źródła i rekomendację z uzasadnieniem;
+- zachować kontekst po zmianie jednej preferencji.
 
-Research nie miał być długą analizą. Jego rolą było potwierdzenie lub zanegowanie kierunku, gdy część techniczna równolegle buduje uniwersalny szkielet aplikacji. Jeżeli dane wykażą brak sensu pomysłu, zespół pozostawił sobie możliwość szybkiego pivotu.
+## 10. Pomysły po MVP
 
-## 10. Podział pracy zarysowany na spotkaniu
+- porównanie wielu marketplace'ów i sklepów;
+- dedykowany adapter eBay;
+- podobieństwo wizualne na podstawie zdjęcia;
+- trwała baza wiedzy i ponowne użycie wcześniejszych researchów;
+- historia cen oraz wykrywanie okazji;
+- personalizowane wagi i długoterminowa pamięć preferencji;
+- wiele kategorii elektroniki;
+- zaawansowane wykrywanie fałszywek i oszustw;
+- uczenie rankingu na zachowaniu użytkowników;
+- powiadomienia o nowych ofertach.
 
-- Kuba i druga osoba: szybki research rynku oraz wybór najtrafniejszej niszy w elektronice używanej.
-- Mikołaj i Rem: przygotowanie repozytorium, ogólnego szkieletu oraz elementów technicznych możliwych do wykorzystania niezależnie od ostatecznego wariantu.
-- Równolegle: rozpoczęcie pracy nad silnikiem dla elektroniki, aby nie czekać bezczynnie na wyniki researchu.
+## 11. Otwarte pytania i ryzyka
 
-Nazwy i dokładne zakresy nie zostały w transkrypcie w pełni doprecyzowane.
+- Czy finalnym wzorcem demo będą AirPods Pro i który dokładnie wariant?
+- Czy pierwsze propozycje są wyłącznie etapem eksploracji, czy także wejściem do rankingu produktu?
+- Jak zdefiniować podobieństwo dla słuchawek i które cechy są twarde?
+- Jakie dane o opiniach, gwarancji, zwrotach i historii sprzedawcy faktycznie udostępni pierwsze źródło?
+- Jak rozróżniać brak danych od negatywnego sygnału?
+- Jak potwierdzać oryginalność, stan baterii i części bez fizycznej inspekcji?
+- Jak często odświeżać ceny oraz dostępność?
+- Czy ręczna zmiana wag jest potrzebna, czy wystarczą proste kierunki wyboru?
+- Czy wybrane źródła pozwalają legalnie i stabilnie pobierać dane?
+- Jak zagwarantować aktualne źródła i uniknąć halucynowanych faktów?
 
-## 11. Decyzje podjęte
+## 12. Rekomendowany scenariusz demo
 
-1. Roboczą kategorią jest używana elektronika użytkowa.
-2. Produkt łączy dobór modelu z wyszukiwaniem konkretnej oferty.
-3. Proces zostaje podzielony na dwie fazy: lekki research, potem głęboka analiza wybranego produktu.
-4. Interfejs ma formę rozmowy zachowującej kontekst.
-5. Agent ma aktywnie zadawać pytania doprecyzowujące.
-6. Budowa szkieletu zaczyna się od razu, równolegle z szybkim researchem rynku.
-7. Kierunek może zostać zmieniony, jeżeli research szybko wykaże brak sensownej niszy lub brak dostępu do danych.
+> Chcę słuchawki podobne do AirPods Pro, przede wszystkim z dobrym ANC, ale tańsze i niekoniecznie Apple.
 
-## 12. Pomysły odłożone na później
+Agent identyfikuje produkt referencyjny, pokazuje 4–6 alternatyw z orientacyjną ceną, podobieństwami i kompromisami. Użytkownik wybiera „najlepszy stosunek ceny do jakości”. System pobiera konkretne oferty, oddzielnie pokazuje dopasowanie modelu, jakość oferty i wiarygodność sprzedawcy, rekomenduje jedną opcję oraz zaznacza braki danych. Następnie użytkownik mówi: „ważniejsza jest gwarancja niż najniższa cena”, a ranking aktualizuje się bez resetowania rozmowy.
 
-- podobne, ale tańsze zamienniki;
-- dopasowanie produktów na podstawie wyglądu lub zdjęcia;
-- uczenie się na wcześniejszych researchach;
-- trwała baza wiedzy w Supabase;
-- wiele kategorii produktowych;
-- agregowanie wielu platform;
-- zaawansowany nieliniowy model rankingu;
-- uwzględnianie nowych ofert jako punktu odniesienia cenowego.
-
-## 13. Otwarte pytania i ryzyka
-
-- Czy wybrane serwisy pozwolą legalnie i stabilnie pobierać dane?
-- Które źródło ofert da się zintegrować w czasie hackathonu?
-- Czy istnieje już bezpośredni konkurent agregujący używaną elektronikę?
-- Jaka jedna podkategoria będzie najlepsza do demo?
-- Jak oceniać wiarygodność i stan oferty na podstawie niepełnego opisu?
-- Jak dużo danych agent powinien pokazywać w fazie pierwszej?
-- Czy dane mają być aktualne w czasie rzeczywistym, czy do demo wystarczy kontrolowany zestaw?
-- Jak ograniczyć koszt i czas odpowiedzi modelu?
-- Jak pokazać przewagę nad zwykłym chatbotem i porównywarką cen?
-
-## 14. Rekomendacja wynikająca z rozmowy
-
-Zespół powinien potraktować słuchawki jako pierwszą kategorię demonstracyjną i zbudować jeden kompletny scenariusz. Integracja z jednym źródłem oraz prosty scoring wystarczą, jeśli użytkownik rzeczywiście przejdzie od ogólnej potrzeby do konkretnej, uzasadnionej oferty. Funkcje efektowne, ale ryzykowne — podobieństwo wizualne, trwała pamięć czy wiele platform — należy wdrażać dopiero po ustabilizowaniu głównego przepływu.
+Najważniejszy efekt demo: krótka wiadomość użytkownika uruchamia zrozumiały proces prowadzący do kilku wiarygodnych i dobrze porównanych ofert, bez ręcznego definiowania wielu parametrów.

@@ -10,4 +10,3 @@ def test_health_does_not_require_external_services(client: TestClient) -> None:
         "service": "Sigma Shopping Agent",
         "environment": "test",
     }
-

@@ -149,4 +149,3 @@ class ApiError(DomainModel):
 
 class ErrorResponse(DomainModel):
     error: ApiError
-
