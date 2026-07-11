@@ -10,12 +10,18 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 Services = Annotated[ApplicationServices, Depends(get_services)]
 
 
+_TERMINAL_STATUSES = {RunStatus.COMPLETED.value, RunStatus.PARTIAL.value, RunStatus.FAILED.value}
+
+
 @router.get("/{run_id}")
 async def get_run(run_id: UUID, services: Services) -> dict[str, Any]:
     run = await services.runs.get(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail={"code": "run_not_found"})
-    recommendations = await services.recommendations.get_for_run(run_id)
+    if run.get("status") in _TERMINAL_STATUSES:
+        recommendations = await services.recommendations.get_for_run(run_id)
+    else:
+        recommendations = []
     return {
         **run,
         "id": str(run_id),

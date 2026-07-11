@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Candidate, SearchDirection } from './api/types'
+import type { Candidate, Recommendation, RunResponse, SearchDirection } from './api/types'
 import { useAuth } from './auth/AuthProvider'
 import { AccountControls } from './components/AccountControls'
 import { HistoryDrawer } from './components/HistoryDrawer'
 import { LineWaves } from './components/LineWaves'
-import { dateTime, fieldLabel, listingFor, money, scoreLabel, sourceName } from './state/presentation'
+import {
+  batteryHealth,
+  capacityLabel,
+  dateTime,
+  explanationParts,
+  gapLabel,
+  listingFor,
+  money,
+  savingsVsNew,
+  scoreLabel,
+  sourceName,
+} from './state/presentation'
 import { useShoppingSession } from './state/useShoppingSession'
 
 const examplePrompts = [
@@ -80,16 +91,125 @@ function ProductCard({ candidate, direction, onChoose, busy }: {
   )
 }
 
-function ScoreRow({ label, value }: { label: string; value: unknown }) {
-  const numeric = Number(value)
-  const valid = Number.isFinite(numeric)
+const signalTone: Record<string, string> = {
+  Mocne: 'good',
+  Dobre: 'ok',
+  Ostrożnie: 'warn',
+}
+
+function Signal({ label, value }: { label: string; value: unknown }) {
+  const level = scoreLabel(value)
   return (
-    <div className="score-row">
-      <span>{label}</span>
-      <div className="score-track" aria-hidden="true">
-        <i style={{ width: valid ? `${Math.max(4, Math.min(100, numeric))}%` : '0%' }} />
-      </div>
-      <strong>{scoreLabel(value)}</strong>
+    <span className={`signal signal--${signalTone[level] ?? 'none'}`}>
+      <i aria-hidden="true" />
+      {label} <strong>{level.toLowerCase()}</strong>
+    </span>
+  )
+}
+
+interface Fact {
+  label: string
+  value: string
+  tone?: 'good' | 'warn'
+}
+
+function Offers({ run, recommendations }: { run: RunResponse; recommendations: Recommendation[] }) {
+  const listings = recommendations.map(listingFor)
+  const prices = listings.map((item) => Number(item?.price))
+  const finitePrices = prices.filter(Number.isFinite)
+  const minPrice = finitePrices.length > 1 ? Math.min(...finitePrices) : NaN
+  const batteries = listings.map(batteryHealth)
+  const knownBatteries = batteries.filter((value): value is number => value !== null)
+  const bestBattery = knownBatteries.length > 1 ? Math.max(...knownBatteries) : null
+
+  return (
+    <div className="offers">
+      {recommendations.map((recommendation, index) => {
+        const listing = listings[index]
+        if (!listing) return null
+        const gaps = recommendation.data_gaps.length ? recommendation.data_gaps : listing.data_gaps ?? []
+        const battery = batteries[index]
+        const capacity = capacityLabel(listing)
+        const saving = savingsVsNew(listing.price, run.new_price_benchmark?.price)
+        const reasons = explanationParts(recommendation.explanation)
+
+        const highlights: string[] = []
+        if (index === 0) highlights.push('Najlepszy wybór')
+        if (prices[index] === minPrice) highlights.push('Najniższa cena')
+        if (battery !== null && bestBattery !== null && battery === bestBattery) highlights.push('Najlepsza bateria')
+        if (listing.warranty) highlights.push('Z gwarancją')
+
+        const facts: Fact[] = []
+        if (battery !== null) facts.push({ label: 'Bateria', value: `${battery}%`, tone: battery >= 85 ? 'good' : battery < 75 ? 'warn' : undefined })
+        if (capacity) facts.push({ label: 'Pamięć', value: capacity })
+        if (listing.condition !== 'unknown') facts.push({ label: 'Stan', value: humanCondition[listing.condition] ?? listing.condition })
+        if (listing.warranty) facts.push({ label: 'Gwarancja', value: listing.warranty, tone: 'good' })
+        if (listing.returns) facts.push({ label: 'Zwrot', value: listing.returns })
+        if (listing.location) facts.push({ label: 'Lokalizacja', value: listing.location })
+
+        return (
+          <article className={`offer ${index === 0 ? 'offer--recommended' : ''}`} key={`${recommendation.rank}-${listing.url}`}>
+            <div className="offer__index">{String(index + 1).padStart(2, '0')}</div>
+            <div className="offer__body">
+              <div className="offer__top">
+                {listing.image_urls?.[0] && (
+                  <img className="offer__thumb" src={listing.image_urls[0]} alt={listing.title} loading="lazy" />
+                )}
+                <div>
+                  <div className="offer__badges">
+                    {highlights.map((highlight) => (
+                      <span key={highlight} className={`badge ${highlight === 'Najlepszy wybór' ? 'badge--best' : 'badge--highlight'}`}>{highlight}</span>
+                    ))}
+                    {recommendation.is_stale && <span className="badge badge--warn">starszy cache</span>}
+                  </div>
+                  <h3>{listing.title}</h3>
+                  <p>{sourceName(recommendation)}{listing.exact_variant ? ` · ${listing.exact_variant}` : ''}</p>
+                </div>
+                <div className="offer__price">
+                  <strong>{money(listing.price, listing.currency)}</strong>
+                  {saving && <span className="offer__saving">{saving}</span>}
+                </div>
+              </div>
+
+              {facts.length > 0 && (
+                <ul className="facts" aria-label="Potwierdzone informacje z ogłoszenia">
+                  {facts.map((fact) => (
+                    <li key={fact.label} className={fact.tone ? `fact fact--${fact.tone}` : 'fact'}>
+                      <span>{fact.label}</span>
+                      <strong>{fact.value}</strong>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {reasons.length > 0 && (
+                <div className="why">
+                  <span className="why__label">Dlaczego ta oferta</span>
+                  <ul>{reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+                </div>
+              )}
+
+              <div className="signals">
+                <Signal label="Dopasowanie" value={recommendation.score_breakdown.product_match} />
+                <Signal label="Jakość oferty" value={recommendation.score_breakdown.offer_quality} />
+                <Signal label="Sprzedawca" value={recommendation.score_breakdown.seller_trust} />
+                <span className="signals__confidence">pewność danych {Math.round(recommendation.confidence * 100)}%</span>
+              </div>
+
+              <div className="offer__footer">
+                <span className="offer__unknowns">
+                  {gaps.length > 0
+                    ? `Nie wiemy: ${gaps.slice(0, 3).map(gapLabel).join(' · ')}${gaps.length > 3 ? ` +${gaps.length - 3}` : ''}`
+                    : `Dane pobrane ${dateTime(recommendation.retrieved_at ?? listing.retrieved_at)}`}
+                </span>
+                <a className="button button--primary" href={recommendation.source_url ?? listing.url} target="_blank" rel="noreferrer noopener">
+                  Zobacz ofertę <span aria-hidden="true">↗</span>
+                </a>
+              </div>
+            </div>
+          </article>
+        )
+      })}
     </div>
   )
 }
@@ -100,18 +220,25 @@ function App() {
   const [draft, setDraft] = useState('')
   const [direction, setDirection] = useState<SearchDirection>('best_value')
   const [historyOpen, setHistoryOpen] = useState(false)
-  const previousUserId = useRef<string | null>(auth.user?.id ?? null)
+  const previousUserId = useRef<string | null | undefined>(undefined)
   const visibleMessages = useMemo(() => shopping.messages.slice(-5), [shopping.messages])
 
   useEffect(() => {
     const nextUserId = auth.user?.id ?? null
+    if (previousUserId.current === undefined) {
+      previousUserId.current = nextUserId
+      return
+    }
     if (previousUserId.current !== nextUserId) {
-      shopping.reset()
-      setDraft('')
-      setHistoryOpen(false)
+      const activeSearch = shopping.busy || shopping.phase === 'searching'
+      if (!activeSearch) {
+        shopping.reset()
+        setDraft('')
+        setHistoryOpen(false)
+      }
       previousUserId.current = nextUserId
     }
-  }, [auth.user?.id, shopping.reset])
+  }, [auth.user?.id, shopping.busy, shopping.phase, shopping.reset])
 
   const send = async () => {
     const text = draft.trim()
@@ -271,55 +398,7 @@ function App() {
                 <div className="partial" role="status"><strong>Częściowy wynik.</strong> Część źródeł jest chwilowo niedostępna; pokazujemy tylko dane, które udało się potwierdzić.</div>
               )}
 
-              <div className="offers">
-                {shopping.recommendations.map((recommendation, index) => {
-                  const listing = listingFor(recommendation)
-                  if (!listing) return null
-                  const gaps = recommendation.data_gaps.length ? recommendation.data_gaps : listing.data_gaps ?? []
-                  return (
-                    <article className={`offer ${index === 0 ? 'offer--recommended' : ''}`} key={`${recommendation.rank}-${listing.url}`}>
-                      <div className="offer__index">{String(index + 1).padStart(2, '0')}</div>
-                      <div className="offer__body">
-                        <div className="offer__top">
-                          <div>
-                            <div className="offer__badges">
-                              {index === 0 && <span className="badge badge--best">Najlepszy wybór</span>}
-                              <span className="badge">{sourceName(recommendation)}</span>
-                              {recommendation.is_stale && <span className="badge badge--warn">starszy cache</span>}
-                            </div>
-                            <h3>{listing.title}</h3>
-                            <p>{fieldLabel(listing.exact_variant)} · stan: {humanCondition[listing.condition] ?? listing.condition}</p>
-                          </div>
-                          <div className="offer__price"><strong>{money(listing.price, listing.currency)}</strong><span>{fieldLabel(listing.location)}</span></div>
-                        </div>
-
-                        <div className="evidence-grid">
-                          <div className="scores">
-                            <ScoreRow label="Dopasowanie produktu" value={recommendation.score_breakdown.product_match} />
-                            <ScoreRow label="Jakość oferty" value={recommendation.score_breakdown.offer_quality} />
-                            <ScoreRow label="Sprzedawca" value={recommendation.score_breakdown.seller_trust} />
-                          </div>
-                          <div className="verdict"><span>Dlaczego ta oferta</span><p>{recommendation.explanation ?? 'Dobra równowaga ceny, stanu i kompletności danych.'}</p></div>
-                        </div>
-
-                        <div className="trust-strip">
-                          <div><span>Gwarancja</span><strong>{fieldLabel(recommendation.field_availability.warranty)}</strong></div>
-                          <div><span>Zwrot</span><strong>{fieldLabel(recommendation.field_availability.returns)}</strong></div>
-                          <div><span>Bateria / zasilanie</span><strong>{fieldLabel(recommendation.field_availability.battery)}</strong></div>
-                          <div><span>Pobrano</span><strong>{dateTime(recommendation.retrieved_at ?? listing.retrieved_at)}</strong></div>
-                        </div>
-
-                        {gaps.length > 0 && <div className="gaps"><strong>Nie wiemy:</strong> {gaps.map((gap) => gap.replaceAll('_', ' ')).join(' · ')}</div>}
-
-                        <div className="offer__footer">
-                          <span>Pewność danych {Math.round(recommendation.confidence * 100)}%</span>
-                          <a className="button button--primary" href={recommendation.source_url ?? listing.url} target="_blank" rel="noreferrer noopener">Zobacz ofertę <span aria-hidden="true">↗</span></a>
-                        </div>
-                      </div>
-                    </article>
-                  )
-                })}
-              </div>
+              <Offers run={shopping.run} recommendations={shopping.recommendations} />
             </div>
           )}
         </section>

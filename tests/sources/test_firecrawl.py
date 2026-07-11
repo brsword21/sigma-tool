@@ -14,7 +14,7 @@ async def test_firecrawl_adapter_maps_valid_documents_and_skips_noise() -> None:
         assert payload["includeDomains"] == ["olx.pl"]
         assert payload["country"] == "PL"
         assert payload["sources"] == ["web"]
-        assert payload["query"] == 'site:olx.pl/d/oferta "Sony XM4"'
+        assert payload["query"] == "site:olx.pl/d/oferta Sony XM4"
         assert "450" not in payload["query"]
         return httpx.Response(
             200,

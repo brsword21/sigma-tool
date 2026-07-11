@@ -47,7 +47,7 @@ describe('api client', () => {
     const outcome = expect(getRun('stuck-run')).rejects.toEqual(
       new ApiError('Połączenie z serwerem trwa zbyt długo. Spróbuj ponownie.', 408),
     )
-    await vi.advanceTimersByTimeAsync(8_000)
+    await vi.advanceTimersByTimeAsync(20_000)
 
     await outcome
   })

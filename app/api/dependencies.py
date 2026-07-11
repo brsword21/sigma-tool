@@ -15,7 +15,7 @@ from app.repositories.protocols import (
     SearchRunRepository,
     SessionRepository,
 )
-from app.services.ports import Clock
+from app.services.ports import Clock, MarketPriceProbe
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,7 @@ class ApplicationServices:
     clock: Clock
     messages: MessageRepository | None = None
     auth: AuthVerifier | None = None
+    market_probe: MarketPriceProbe | None = None
 
 
 def get_services(request: Request) -> ApplicationServices:

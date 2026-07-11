@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createSession, getRun, selectProduct, sendMessage } from '../api/client'
+import { ApiError, createSession, getRun, selectProduct, sendMessage } from '../api/client'
 import type { Candidate, Recommendation, RunResponse, SearchDirection } from '../api/types'
 import type { SessionHistoryResponse } from '../api/types'
 import { demoCandidates, demoRun, demoRunForCandidate } from './demo'
@@ -36,9 +36,12 @@ export function useShoppingSession() {
   const lastOperation = useRef<(() => Promise<void>) | null>(null)
   const mounted = useRef(true)
 
-  useEffect(() => () => {
-    mounted.current = false
-    activeRequest.current += 1
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      activeRequest.current += 1
+    }
   }, [])
 
   const fail = useCallback((reason: unknown) => {
@@ -49,24 +52,56 @@ export function useShoppingSession() {
   }, [])
 
   const pollRun = useCallback(async (runId: string) => {
+    if (!runId) throw new Error('Brak identyfikatora wyszukiwania.')
     const requestId = ++activeRequest.current
-    const deadline = Date.now() + 45_000
+    const deadline = Date.now() + 90_000
     setPhase('searching')
     setBusy(true)
-    while (Date.now() < deadline && requestId === activeRequest.current) {
-      const next = await getRun(runId)
-      if (!mounted.current || requestId !== activeRequest.current) return
+    let emptyTerminalPolls = 0
+
+    while (Date.now() < deadline) {
+      if (requestId !== activeRequest.current) return
+
+      let next
+      try {
+        next = await getRun(runId)
+      } catch (reason) {
+        if (reason instanceof ApiError && reason.status === 408) {
+          await pause(1000)
+          continue
+        }
+        throw reason
+      }
+
+      if (!mounted.current) {
+        setBusy(false)
+        return
+      }
+      if (requestId !== activeRequest.current) return
+
       setRun(next)
+
       if (terminalStatus(next.status)) {
-        if (next.status === 'failed' || next.recommendations.length === 0) {
+        if (next.status === 'failed') {
+          throw new Error('Nie znaleźliśmy teraz wystarczająco pewnych ofert.')
+        }
+        if (next.recommendations.length === 0) {
+          emptyTerminalPolls += 1
+          if (emptyTerminalPolls < 4) {
+            await pause(1000)
+            continue
+          }
           throw new Error('Nie znaleźliśmy teraz wystarczająco pewnych ofert.')
         }
         setPhase('results')
         setBusy(false)
         return
       }
+
+      emptyTerminalPolls = 0
       await pause(1500)
     }
+
     throw new Error('Wyszukiwanie trwa dłużej niż zwykle. Możesz spróbować ponownie.')
   }, [])
 

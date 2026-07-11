@@ -12,7 +12,7 @@ type AccessTokenProvider = () => Promise<string | null>
 let accessTokenProvider: AccessTokenProvider = async () => null
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 20_000
-const RUN_POLL_REQUEST_TIMEOUT_MS = 8_000
+const RUN_POLL_REQUEST_TIMEOUT_MS = 20_000
 const TIMEOUT_MESSAGE = 'Połączenie z serwerem trwa zbyt długo. Spróbuj ponownie.'
 
 export function setAccessTokenProvider(provider: AccessTokenProvider) {
@@ -74,11 +74,15 @@ async function request<T>(
 
 export const createSession = () => request<SessionResponse>('/sessions', { method: 'POST' })
 
+// Discovery runs the LLM plus a live market probe per suggestion, so it needs
+// far more headroom than regular requests.
+const DISCOVERY_REQUEST_TIMEOUT_MS = 60_000
+
 export const sendMessage = (sessionId: string, message: string) =>
   request<MessageResponse>(`/sessions/${sessionId}/messages`, {
     method: 'POST',
     body: JSON.stringify({ message }),
-  })
+  }, DISCOVERY_REQUEST_TIMEOUT_MS)
 
 export const selectProduct = (sessionId: string, productId: string, direction: SearchDirection) =>
   request<{ run_id: string; status: RunResponse['status'] }>(

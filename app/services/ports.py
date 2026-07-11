@@ -1,9 +1,14 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 
 ResponseT = TypeVar("ResponseT", bound=BaseModel)
+
+
+class MarketPriceProbe(Protocol):
+    async def probe_used_prices(self, model: str, limit: int = 12) -> list[Decimal]: ...
 
 
 class LLMClient(Protocol):

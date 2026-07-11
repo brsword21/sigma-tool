@@ -1,3 +1,4 @@
+import re
 from statistics import median
 from typing import Any
 
@@ -14,6 +15,22 @@ from app.product_matching import (
     matches_product_title,
 )
 from app.ranking.risk import risk_penalty
+
+_BATTERY_PATTERN = re.compile(
+    r"(?:bat\w*|kondycj\w*|zdrowi\w*|health)\W{0,4}(\d{2,3})\s*%"
+    r"|(\d{2,3})\s*%\s*(?:bat\w*|kondycj\w*|zdrowi\w*|health)",
+    re.IGNORECASE | re.UNICODE,
+)
+_CAPACITY_PATTERN = re.compile(r"(\d{2,4})\s*(gb|tb)\b", re.IGNORECASE)
+
+
+def extract_battery_health(text: str) -> int | None:
+    match = _BATTERY_PATTERN.search(text)
+    if not match:
+        return None
+    value = int(match.group(1) or match.group(2))
+    return value if 40 <= value <= 100 else None
+
 
 _CONDITION_POINTS = {
     ListingCondition.NEW: 20,
@@ -177,7 +194,7 @@ def _score(
         2,
     )
     strength_texts = [text for _, text in strengths[:3]]
-    explanation = _build_explanation(strength_texts, matched_brief, brief_risks, risk)
+    explanation = _build_explanation(listing, median_price, matched_brief, brief_risks, risk)
     return RankedListing(
         listing=listing,
         score=breakdown.total,
@@ -194,21 +211,32 @@ def _score(
 
 
 def _build_explanation(
-    strengths: list[str],
+    listing: NormalizedListing,
+    median_price: float,
     matched_brief: list[str],
     brief_risks: list[str],
     risk: str | None,
 ) -> str | None:
-    if not matched_brief and not brief_risks:
-        return None
-    parts = list(strengths[:2])
-    if matched_brief:
-        parts.append(
-            "spełnia kluczowe dla tego urządzenia parametry: "
-            + ", ".join(matched_brief[:3])
-        )
+    # Fallback used when the LLM explanation is unavailable: only facts that
+    # come from this specific listing, never generic scoring labels.
+    text = f"{listing.title} {listing.description or ''}"
+    parts: list[str] = []
+    ratio = float(listing.price) / median_price if median_price else 1.0
+    if ratio <= 0.93:
+        parts.append(f"cena {round((1 - ratio) * 100)}% poniżej mediany porównywanych ofert")
+    elif ratio >= 1.07:
+        parts.append(f"cena {round((ratio - 1) * 100)}% powyżej mediany porównywanych ofert")
+    battery = extract_battery_health(text)
+    if battery is not None:
+        parts.append(f"sprzedawca deklaruje kondycję baterii {battery}%")
+    if listing.warranty:
+        parts.append(f"gwarancja: {listing.warranty}")
+    title_folded = listing.title.casefold()
+    confirmed = [term for term in matched_brief if term not in title_folded]
+    if confirmed:
+        parts.append("potwierdzone w treści ogłoszenia: " + ", ".join(confirmed[:3]))
     if risk:
         parts.append(f"uwaga: {risk}")
     elif brief_risks:
-        parts.append(f"na co uważać: {brief_risks[0]}")
-    return "; ".join(parts) if parts else None
+        parts.append(f"sprawdź przed zakupem: {brief_risks[0]}")
+    return "; ".join(parts[:4]) if parts else None

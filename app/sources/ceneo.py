@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.domain.models import NewPriceBenchmark, SearchQuery
-from app.product_matching import is_accessory_title
+from app.product_matching import matches_product_title
 from app.sources.firecrawl import SourceError, _records
 
 _PRICE_WITH_CURRENCY_RE = re.compile(
@@ -80,8 +80,10 @@ def _benchmark(
     if (
         not _is_product_url(url)
         or not title
-        or is_accessory_title(title)
-        or not _matches_model(title, model)
+        # Benchmark must be the exact product, never an add-on: an accessory
+        # noun anywhere in a Ceneo product title means it's not the phone.
+        or _ACCESSORY_NOUN_RE.search(_normalized(title))
+        or not matches_product_title(title, model)
     ):
         return None
     price = _record_price(record, metadata)
@@ -103,15 +105,10 @@ def _is_product_url(url: str) -> bool:
     )
 
 
-def _matches_model(title: str, model: str) -> bool:
-    normalized_title = _normalized(title)
-    terms = [term for term in _normalized(model).split() if len(term) > 1]
-    if not terms:
-        return False
-    distinctive = [term for term in terms if any(character.isdigit() for character in term)]
-    if distinctive and not all(term in normalized_title for term in distinctive):
-        return False
-    return sum(term in normalized_title for term in terms) / len(terms) >= 0.6
+_ACCESSORY_NOUN_RE = re.compile(
+    r"\b(?:etui|futeral|futerał|pokrowiec|szklo|szkło|folia|kabel|"
+    r"ladowarka|ładowarka|adapter|uchwyt|obudowa|case)\b"
+)
 
 
 def _normalized(value: str) -> str:

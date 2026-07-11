@@ -1,3 +1,5 @@
+import asyncio
+from decimal import Decimal
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -192,6 +194,10 @@ async def add_message(
         candidate["product_id"] = str(product_id)
         candidate["estimated_price"] = suggestion.estimated_price
         candidates.append(candidate)
+    if not result.question:
+        candidates = await _with_market_prices(
+            services, candidates, result.requirements.budget_max
+        )
     changes = {
         "stage": stage.value,
         "requirements": result.requirements.model_dump(mode="json"),
@@ -256,6 +262,62 @@ async def select_product(
         requirements,
     )
     return {"run_id": str(run_id), "status": RunStatus.PENDING.value}
+
+
+MARKET_PROBE_TIMEOUT_SECONDS = 12
+MIN_CANDIDATES = 4
+
+
+async def _with_market_prices(
+    services: ApplicationServices,
+    candidates: list[dict[str, Any]],
+    budget_max: Decimal | None,
+) -> list[dict[str, Any]]:
+    """Ground LLM suggestions in real second-hand prices before showing them.
+
+    Each candidate gets a quick OLX probe; its estimated price becomes the
+    observed median. Candidates whose cheapest real offer exceeds the budget
+    are dropped, unless that would leave fewer than the UI's minimum of 4.
+    """
+    probe = services.market_probe
+    if probe is None or not candidates:
+        return candidates
+
+    async def probe_one(candidate: dict[str, Any]) -> list[Decimal] | None:
+        try:
+            return await asyncio.wait_for(
+                probe.probe_used_prices(f"{candidate['brand']} {candidate['model']}"),
+                timeout=MARKET_PROBE_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            return None
+
+    results = await asyncio.gather(*(probe_one(candidate) for candidate in candidates))
+    enriched: list[dict[str, Any]] = []
+    for candidate, prices in zip(candidates, results, strict=True):
+        if prices:
+            ordered = sorted(prices)
+            candidate = {
+                **candidate,
+                "estimated_price": int(ordered[len(ordered) // 2]),
+                "market_price_from": int(ordered[0]),
+                "market_offer_count": len(ordered),
+            }
+        enriched.append(candidate)
+    if budget_max is not None:
+        affordable = [
+            candidate
+            for candidate in enriched
+            if Decimal(candidate["estimated_price"]) <= budget_max
+        ]
+        if len(affordable) >= MIN_CANDIDATES:
+            return affordable
+        over_budget = sorted(
+            (candidate for candidate in enriched if candidate not in affordable),
+            key=lambda candidate: candidate["estimated_price"],
+        )
+        return affordable + over_budget[: MIN_CANDIDATES - len(affordable)]
+    return enriched
 
 
 def _assert_session_access(

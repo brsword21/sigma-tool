@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { dateTime, fieldLabel, money, scoreLabel, terminalStatus } from './presentation'
+import { batteryHealth, capacityLabel, dateTime, explanationParts, fieldLabel, gapLabel, money, savingsVsNew, scoreLabel, terminalStatus } from './presentation'
+import type { Listing } from '../api/types'
 import { demoCandidates, demoRunForCandidate } from './demo'
 
 describe('presentation helpers', () => {
@@ -24,6 +25,26 @@ describe('presentation helpers', () => {
 
   it('does not invent invalid dates', () => {
     expect(dateTime('not-a-date')).toBe('Brak daty')
+  })
+
+  it('extracts listing facts from real OLX-style titles', () => {
+    const listing = (title: string): Listing => ({ source: 'olx', title, url: 'https://x', price: 1999, currency: 'PLN', condition: 'good' })
+    expect(batteryHealth(listing('Telefon Apple iPhone 15 6GB/256GB 85% bat Poznań'))).toBe(85)
+    expect(batteryHealth(listing('Apple IPhone 15 256 Gb 88% kondycji Czarny'))).toBe(88)
+    expect(batteryHealth(listing('APPLE IPHONE 15 128 GB | Jak Nowy, 87% Baterii'))).toBe(87)
+    expect(batteryHealth(listing('iPhone 15 100% oryginał'))).toBeNull()
+    expect(capacityLabel(listing('Apple IPhone 15 256 Gb 88% kondycji'))).toBe('256 GB')
+    expect(capacityLabel(listing('Sony WF-1000XM5 czarne'))).toBeNull()
+  })
+
+  it('describes savings, gaps and explanations without noise', () => {
+    expect(savingsVsNew(1999, 2549)).toBe('22% taniej niż nowy')
+    expect(savingsVsNew(2500, 2549)).toBeNull()
+    expect(savingsVsNew(1999, undefined)).toBeNull()
+    expect(gapLabel('battery_health_unknown')).toBe('kondycja baterii')
+    expect(gapLabel('seller_reviews')).toBe('opinie sprzedawcy')
+    expect(explanationParts('cena 12% poniżej mediany; gwarancja: 12 miesięcy; a; b')).toHaveLength(3)
+    expect(explanationParts(null)).toEqual([])
   })
 
   it('keeps demo offers on the exact selected variant', () => {

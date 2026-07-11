@@ -31,7 +31,8 @@ TOP_RESULTS = 5
 TOTAL_RESULTS = 20
 PRODUCT_RESEARCH_TIMEOUT_SECONDS = 15
 SOURCE_TIMEOUT_SECONDS = 25
-RUN_TIMEOUT_SECONDS = 40
+IMAGE_ENRICH_TIMEOUT_SECONDS = 12
+RUN_TIMEOUT_SECONDS = 55
 
 
 @dataclass(frozen=True)
@@ -288,6 +289,7 @@ class SearchOrchestrator:
             return ListingCollection(marked, ["cache"], {}, {}, stale_count)
         if len(fresh) >= 10:
             log_event("listing_cache_used", product_id=product_id, count=len(fresh), stale=False)
+            fresh = await self._enrich_cached_images(product_id, fresh)
             return ListingCollection(fresh, ["cache"], {}, {})
 
         query = SearchQuery(
@@ -329,6 +331,7 @@ class SearchOrchestrator:
                 errors[source.source_name] = _safe_error(source_error)
                 continue
             succeeded.append(source.source_name)
+            result = await _enrich_images(source, result)
             for raw in result:
                 try:
                     fetched.append(
@@ -363,6 +366,30 @@ class SearchOrchestrator:
         return ListingCollection(available, succeeded, errors, source_timings_ms, stale_count)
 
 
+    async def _enrich_cached_images(
+        self, product_id: UUID, listings: list[NormalizedListing]
+    ) -> list[NormalizedListing]:
+        """Cached listings predate image support; backfill and persist their photos."""
+        source = next(
+            (candidate for candidate in self._sources if hasattr(candidate, "get_details")),
+            None,
+        )
+        if source is None:
+            return listings
+        enriched = await _enrich_images(source, listings)
+        changed = [new for new, old in zip(enriched, listings, strict=True) if new is not old]
+        if changed:
+            try:
+                await self._listings.upsert_many(product_id, changed, self._clock.now())
+            except Exception as exc:
+                log_event(
+                    "listing_image_persist_failed",
+                    product_id=product_id,
+                    error=_safe_error(exc),
+                )
+        return enriched
+
+
 async def _timed_search(
     source: ListingSource, query: SearchQuery
 ) -> tuple[list[Any], BaseException | None, int]:
@@ -375,6 +402,45 @@ async def _timed_search(
         )
     except BaseException as exc:
         return [], exc, round((perf_counter() - started) * 1000)
+
+
+async def _enrich_images(
+    source: ListingSource, listings: list[Any], max_enrich: int = 10
+) -> list[Any]:
+    listings = [_without_stale_images_gap(listing) for listing in listings]
+    need = [
+        (i, listing)
+        for i, listing in enumerate(listings)
+        if not listing.image_urls and listing.source == source.source_name
+    ][:max_enrich]
+    if not need:
+        return listings
+
+    async def fetch(idx: int, listing: Any) -> tuple[int, list]:
+        try:
+            # A Firecrawl scrape routinely takes 4-10 s; ten of them run in parallel.
+            details = await asyncio.wait_for(
+                source.get_details(str(listing.url)), timeout=IMAGE_ENRICH_TIMEOUT_SECONDS
+            )
+            return idx, details.image_urls if details else []
+        except Exception:
+            return idx, []
+
+    enriched = list(listings)
+    for idx, urls in await asyncio.gather(*(fetch(i, listing) for i, listing in need)):
+        if urls:
+            enriched[idx] = _without_stale_images_gap(
+                enriched[idx].model_copy(update={"image_urls": urls})
+            )
+    return enriched
+
+
+def _without_stale_images_gap(listing: Any) -> Any:
+    """Drop an 'images' data gap persisted before the listing got its photos."""
+    gaps = getattr(listing, "data_gaps", None)
+    if not listing.image_urls or not gaps or "images" not in gaps:
+        return listing
+    return listing.model_copy(update={"data_gaps": [gap for gap in gaps if gap != "images"]})
 
 
 async def _timed_benchmark(

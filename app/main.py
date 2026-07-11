@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
 
 from app.api import (
     deal_watch_router,
@@ -15,9 +16,20 @@ from app.deal_watch.repository import InMemoryDealWatchRepository
 from app.deal_watch.service import DealWatchService
 
 
+def _configure_observability_logging() -> None:
+    logger = logging.getLogger("picky.shopping_agent")
+    if any(isinstance(handler, logging.StreamHandler) for handler in logger.handlers):
+        return
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+
 def create_app(
     settings: Settings | None = None, *, services: ApplicationServices | None = None
 ) -> FastAPI:
+    _configure_observability_logging()
     resolved_settings = settings or get_settings()
     resolved_services = services
     if resolved_services is None and resolved_settings.external_services_configured:

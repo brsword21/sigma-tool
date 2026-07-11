@@ -1,6 +1,7 @@
 import asyncio
 import re
 from collections.abc import Mapping
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urlparse
 
@@ -8,7 +9,11 @@ import httpx
 from pydantic import TypeAdapter, ValidationError
 
 from app.domain.models import RawListing, SearchQuery
-from app.product_matching import is_direct_olx_listing_url, matches_product_title
+from app.product_matching import (
+    product_words,
+    is_direct_olx_listing_url,
+    matches_product_title,
+)
 
 
 class SourceError(RuntimeError):
@@ -28,23 +33,43 @@ class OlxFirecrawlSource:
         self._client = client
 
     async def search(self, query: SearchQuery) -> list[RawListing]:
-        search_terms = [query.model, *query.variants]
+        # Model stays unquoted so "Samsung S25" also matches "Samsung Galaxy S25"
+        # titles; only variants are exact phrases. Over-fetch because category
+        # pages and accessories get filtered out below.
         payload = {
             "query": " ".join(
-                ["site:olx.pl/d/oferta", *(f'"{term}"' for term in search_terms)]
+                ["site:olx.pl/d/oferta", query.model, *(f'"{term}"' for term in query.variants)]
             ),
-            "limit": query.limit,
+            "limit": min(50, max(query.limit * 2, 20)),
             "sources": ["web"],
             "includeDomains": ["olx.pl"],
             "country": "PL",
             "location": "Poland",
             "ignoreInvalidURLs": True,
         }
-        data = await self._post("https://api.firecrawl.dev/v2/search", payload)
-        records = _records(data)
+        # Web search surfaces mostly category pages, so the OLX results page is
+        # scraped in parallel — it lists dozens of direct offers per query.
+        results_url = f"https://www.olx.pl/oferty/q-{'-'.join(product_words(query.model))}/"
+        search_result, scrape_result = await asyncio.gather(
+            self._post("https://api.firecrawl.dev/v2/search", payload),
+            self._post(
+                "https://api.firecrawl.dev/v2/scrape",
+                {"url": results_url, "formats": ["markdown"], "onlyMainContent": True},
+            ),
+            return_exceptions=True,
+        )
+        if isinstance(search_result, BaseException) and isinstance(scrape_result, BaseException):
+            raise SourceError(f"Firecrawl search and scrape failed: {search_result}")
+        records: list[Mapping[str, Any]] = []
+        if not isinstance(scrape_result, BaseException):
+            records.extend(_offers_from_results_page(scrape_result))
+        if not isinstance(search_result, BaseException):
+            records.extend(_records(search_result))
         listings: list[RawListing] = []
         external_ids: set[str] = set()
-        for record in records[: query.limit]:
+        for record in records:
+            if len(listings) >= query.limit:
+                break
             try:
                 listing = _raw_listing(record)
                 if (
@@ -59,6 +84,24 @@ class OlxFirecrawlSource:
         if not listings:
             raise SourceError("Firecrawl returned no matching priced offers")
         return listings
+
+    async def probe_used_prices(self, model: str, limit: int = 12) -> list[Decimal]:
+        """Quick market probe: one results-page scrape, matching offers' prices only."""
+        results_url = f"https://www.olx.pl/oferty/q-{'-'.join(product_words(model))}/"
+        data = await self._post(
+            "https://api.firecrawl.dev/v2/scrape",
+            {"url": results_url, "formats": ["markdown"], "onlyMainContent": True},
+        )
+        prices: list[Decimal] = []
+        for offer in _offers_from_results_page(data):
+            if len(prices) >= limit:
+                break
+            if not offer.get("price") or not matches_product_title(str(offer["title"]), model):
+                continue
+            price = _decimal_from_price_text(str(offer["price"]))
+            if price is not None and price > 0:
+                prices.append(price)
+        return prices
 
     async def get_details(self, external_id: str) -> RawListing | None:
         url = (
@@ -93,6 +136,24 @@ class OlxFirecrawlSource:
             ) from exc
         except (TimeoutError, httpx.HTTPError, ValueError) as exc:
             raise SourceError(f"Firecrawl request failed: {type(exc).__name__}") from exc
+
+
+_RESULTS_PAGE_OFFER = re.compile(
+    r"\[\*\*(?P<title>[^\]]{5,160})\*\*\]\((?P<url>https://www\.olx\.pl/d/oferta/[^)\s]+)\)"
+)
+
+
+def _offers_from_results_page(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    data = payload.get("data")
+    markdown = str(data.get("markdown") or "") if isinstance(data, Mapping) else ""
+    offers: list[Mapping[str, Any]] = []
+    for match in _RESULTS_PAGE_OFFER.finditer(markdown):
+        title = re.sub(r"\\(.)", r"\1", match.group("title")).strip()
+        # Price sits right after the link; stop at the next markdown link so a
+        # price-less offer ("Zamienię") doesn't steal the neighbour's price.
+        window = markdown[match.end() : match.end() + 160].split("[")[0]
+        offers.append({"url": match.group("url"), "title": title, "price": _price_from_text(window)})
+    return offers
 
 
 def _records(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -132,6 +193,21 @@ def _raw_listing(record: Mapping[str, Any]) -> RawListing:
         image_urls=TypeAdapter(list[str]).validate_python(images),
         raw_payload=dict(record),
     )
+
+
+def _decimal_from_price_text(value: str) -> Decimal | None:
+    match = re.search(
+        r"(?<!\d)(\d{1,3}(?:[ . ]\d{3})*|\d+)(?:[,.](\d{1,2}))?\s*(?:zł|PLN)",
+        value,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    whole = match.group(1).replace(" ", "").replace(".", "").replace(" ", "")
+    try:
+        return Decimal(f"{whole}.{match.group(2) or '00'}")
+    except InvalidOperation:
+        return None
 
 
 def _price_from_text(value: str) -> str | None:

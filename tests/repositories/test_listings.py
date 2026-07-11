@@ -14,22 +14,29 @@ class Result:
 class Query:
     def __init__(self, db: "FakeClient", table: str) -> None:
         self.db, self.table = db, table
-        self.payload = None
+        self.payload: dict[str, object] | list[dict[str, object]] | None = None
 
-    def upsert(self, payload: dict[str, object], **kwargs: object) -> "Query":
+    def upsert(
+        self, payload: dict[str, object] | list[dict[str, object]], **kwargs: object
+    ) -> "Query":
         self.payload = payload
         return self
 
     def execute(self) -> Result:
         if self.table == "listing_snapshots":
-            return Result([self.payload or {}])
-        key = (str(self.payload["source"]), str(self.payload["external_id"]))
-        existing = self.db.rows.get(
-            key, {"id": str(uuid4()), "first_seen_at": self.payload["last_seen_at"]}
-        )
-        existing.update(self.payload or {})
-        self.db.rows[key] = existing
-        return Result([existing])
+            payloads = self.payload if isinstance(self.payload, list) else [self.payload or {}]
+            return Result(payloads)
+        payloads = self.payload if isinstance(self.payload, list) else [self.payload or {}]
+        results: list[dict[str, object]] = []
+        for payload in payloads:
+            key = (str(payload["source"]), str(payload["external_id"]))
+            existing = self.db.rows.get(
+                key, {"id": str(uuid4()), "first_seen_at": payload["last_seen_at"]}
+            )
+            existing.update(payload)
+            self.db.rows[key] = existing
+            results.append(existing)
+        return Result(results)
 
 
 class FakeClient:

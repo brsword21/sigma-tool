@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../auth/AuthProvider'
 
 export function AuthModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -35,7 +36,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
     }
   }
 
-  return (
+  return createPortal(
     <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
         <button className="close-button" type="button" onClick={onClose} aria-label="Zamknij logowanie">×</button>
@@ -65,6 +66,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
           </>
         )}
       </section>
-    </div>
+    </div>,
+    document.body,
   )
 }

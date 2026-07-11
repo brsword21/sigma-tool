@@ -3,11 +3,13 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from anyio import to_thread
+
 from app.domain.models import Currency, ListingCondition, NormalizedListing, Requirements, RunStatus
 
 
-def _execute(query: Any) -> list[dict[str, Any]]:
-    result = query.execute()
+async def _execute(query: Any) -> list[dict[str, Any]]:
+    result = await to_thread.run_sync(query.execute)
     return list(result.data or [])
 
 
@@ -16,7 +18,7 @@ class SupabaseProductRepository:
         self._client = client
 
     async def get(self, product_id: UUID) -> dict[str, Any] | None:
-        rows = _execute(self._client.table("products").select("*").eq("id", str(product_id)))
+        rows = await _execute(self._client.table("products").select("*").eq("id", str(product_id)))
         return rows[0] if rows else None
 
     async def upsert(self, product: dict[str, Any]) -> UUID:
@@ -28,7 +30,7 @@ class SupabaseProductRepository:
             or f"{product['brand']} {product['model']}",
             "specifications": product.get("specifications") or {},
         }
-        rows = _execute(
+        rows = await _execute(
             self._client.table("products").upsert(payload, on_conflict="brand,model")
         )
         if not rows:
@@ -42,21 +44,21 @@ class SupabaseSessionRepository:
 
     async def create(self, user_id: UUID | None = None) -> UUID:
         payload = {"user_id": str(user_id)} if user_id else {}
-        rows = _execute(self._client.table("sessions").insert(payload))
+        rows = await _execute(self._client.table("sessions").insert(payload))
         if not rows:
             raise RuntimeError("Supabase did not return the created session")
         return UUID(str(rows[0]["id"]))
 
     async def get(self, session_id: UUID) -> dict[str, Any] | None:
-        rows = _execute(self._client.table("sessions").select("*").eq("id", str(session_id)))
+        rows = await _execute(self._client.table("sessions").select("*").eq("id", str(session_id)))
         return rows[0] if rows else None
 
     async def update(self, session_id: UUID, changes: dict[str, Any]) -> None:
         payload = {**changes, "updated_at": datetime.now(UTC).isoformat()}
-        _execute(self._client.table("sessions").update(payload).eq("id", str(session_id)))
+        await _execute(self._client.table("sessions").update(payload).eq("id", str(session_id)))
 
     async def list_for_user(self, user_id: UUID) -> list[dict[str, Any]]:
-        return _execute(
+        return await _execute(
             self._client.table("sessions")
             .select("*")
             .eq("user_id", str(user_id))
@@ -69,7 +71,7 @@ class SupabaseMessageRepository:
         self._client = client
 
     async def add(self, session_id: UUID, role: str, content: str) -> UUID:
-        rows = _execute(
+        rows = await _execute(
             self._client.table("messages").insert(
                 {"session_id": str(session_id), "role": role, "content": content}
             )
@@ -79,7 +81,7 @@ class SupabaseMessageRepository:
         return UUID(str(rows[0]["id"]))
 
     async def list_for_session(self, session_id: UUID) -> list[dict[str, Any]]:
-        return _execute(
+        return await _execute(
             self._client.table("messages")
             .select("id,session_id,role,content,created_at")
             .eq("session_id", str(session_id))
@@ -99,7 +101,7 @@ class SupabaseSearchRunRepository:
             "sources_requested": query.get("sources_requested", []),
             "status": RunStatus.PENDING.value,
         }
-        rows = _execute(self._client.table("search_runs").insert(payload))
+        rows = await _execute(self._client.table("search_runs").insert(payload))
         if not rows:
             raise RuntimeError("Supabase did not return the created search run")
         return UUID(str(rows[0]["id"]))
@@ -125,10 +127,10 @@ class SupabaseSearchRunRepository:
             payload["error_summary"] = error_summary
         if status in {RunStatus.PARTIAL, RunStatus.COMPLETED, RunStatus.FAILED}:
             payload["new_price_benchmark"] = new_price_benchmark
-        _execute(self._client.table("search_runs").update(payload).eq("id", str(run_id)))
+        await _execute(self._client.table("search_runs").update(payload).eq("id", str(run_id)))
 
     async def get(self, run_id: UUID) -> dict[str, Any] | None:
-        rows = _execute(self._client.table("search_runs").select("*").eq("id", str(run_id)))
+        rows = await _execute(self._client.table("search_runs").select("*").eq("id", str(run_id)))
         return rows[0] if rows else None
 
 
@@ -137,7 +139,7 @@ class SupabaseProductResearchRepository:
         self._client = client
 
     async def get_fresh(self, product_id: UUID, fresh_since: datetime) -> dict[str, Any] | None:
-        rows = _execute(
+        rows = await _execute(
             self._client.table("product_research")
             .select("*")
             .eq("product_id", str(product_id))
@@ -148,7 +150,7 @@ class SupabaseProductResearchRepository:
         return rows[0] if rows else None
 
     async def save(self, product_id: UUID, research: dict[str, Any]) -> UUID:
-        rows = _execute(
+        rows = await _execute(
             self._client.table("product_research").insert(
                 {"product_id": str(product_id), **research}
             )
@@ -165,14 +167,14 @@ class SupabaseRecommendationRepository:
     async def replace_for_run(
         self, run_id: UUID, recommendations: list[dict[str, Any]]
     ) -> None:
-        _execute(
+        await _execute(
             self._client.table("recommendations").delete().eq("search_run_id", str(run_id))
         )
         if recommendations:
-            _execute(self._client.table("recommendations").insert(recommendations))
+            await _execute(self._client.table("recommendations").insert(recommendations))
 
     async def get_for_run(self, run_id: UUID) -> list[dict[str, Any]]:
-        return _execute(
+        return await _execute(
             self._client.table("recommendations")
             .select("*,listings(*)")
             .eq("search_run_id", str(run_id))
@@ -189,9 +191,11 @@ class SupabaseListingRepository:
     async def upsert_many(
         self, product_id: UUID, listings: list[NormalizedListing], observed_at: datetime
     ) -> list[NormalizedListing]:
-        saved: list[NormalizedListing] = []
-        for listing in listings:
-            payload = {
+        if not listings:
+            return []
+
+        payloads = [
+            {
                 "product_id": str(product_id),
                 "source": listing.source,
                 "external_id": listing.external_id,
@@ -218,24 +222,38 @@ class SupabaseListingRepository:
                 "last_seen_at": observed_at.isoformat(),
                 "active": listing.active,
             }
-            rows = _execute(
-                self._client.table("listings").upsert(payload, on_conflict="source,external_id")
-            )
-            if not rows:
+            for listing in listings
+        ]
+        rows = await _execute(
+            self._client.table("listings").upsert(payloads, on_conflict="source,external_id")
+        )
+        if not rows:
+            return []
+
+        rows_by_external_id = {str(row["external_id"]): row for row in rows}
+        snapshot_payloads: list[dict[str, Any]] = []
+        saved: list[NormalizedListing] = []
+        for listing in listings:
+            row = rows_by_external_id.get(listing.external_id)
+            if row is None:
                 continue
-            row = rows[0]
-            _execute(
+            snapshot_payloads.append(
+                {
+                    "listing_id": row["id"],
+                    "price": str(listing.price),
+                    "active": listing.active,
+                    "observed_at": observed_at.isoformat(),
+                }
+            )
+            saved.append(_listing_from_row(row))
+
+        if snapshot_payloads:
+            await _execute(
                 self._client.table("listing_snapshots").upsert(
-                    {
-                        "listing_id": row["id"],
-                        "price": str(listing.price),
-                        "active": listing.active,
-                        "observed_at": observed_at.isoformat(),
-                    },
+                    snapshot_payloads,
                     on_conflict="listing_id,observed_at",
                 )
             )
-            saved.append(_listing_from_row(row))
         return saved
 
     async def find_active(
@@ -255,7 +273,7 @@ class SupabaseListingRepository:
             query = query.ilike("location", f"%{requirements.location}%")
         if fresh_since:
             query = query.gte("last_seen_at", fresh_since.isoformat())
-        rows = _execute(query.order("last_seen_at", desc=True))
+        rows = await _execute(query.order("last_seen_at", desc=True))
         listings = [_listing_from_row(row) for row in rows]
         if requirements.required_variants:
             wanted = {item.casefold() for item in requirements.required_variants}
