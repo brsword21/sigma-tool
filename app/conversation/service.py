@@ -1,6 +1,7 @@
 import json
 import re
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 
 from app.domain.models import ChangeIntent, ReferenceProduct, Requirements
 from app.llm.schemas import ConversationOutput, ProductSuggestion
@@ -46,6 +47,12 @@ class ConversationResult:
     suggestions: list[ProductSuggestion]
     change_intent: ChangeIntent
     reference_product: ReferenceProduct | None = None
+
+
+@dataclass(frozen=True)
+class DirectProductSearch:
+    product: ReferenceProduct
+    budget_max: Decimal | None = None
 
 
 class ConversationService:
@@ -96,6 +103,51 @@ _IPHONE_MODEL = re.compile(
     r"\biphone[\s-]*(\d{1,2})(?:[\s-]*(pro(?:[\s-]*max)?|plus|mini|e|s|c))?\b",
     re.IGNORECASE,
 )
+
+_DIRECT_LISTING_REQUEST = re.compile(
+    r"\b(?:znajdź|wyszukaj|pokaż|szukaj|sprawdź)\s+(?:mi\s+)?"
+    r"(?:konkretne\s+)?(?:ogłoszenia|oferty)\s*(?:dla\s+|na\s+)?(?P<product>.+)$",
+    re.IGNORECASE,
+)
+_BUDGET = re.compile(
+    r"\s+(?:do|max(?:ymalnie)?|za)\s+(?P<amount>\d[\d\s.,]*)\s*(?:zł|pln)\b.*$",
+    re.IGNORECASE,
+)
+
+
+def infer_direct_product_search(message: str) -> DirectProductSearch | None:
+    """Recognize only explicit listing commands for a concrete alphanumeric model."""
+    match = _DIRECT_LISTING_REQUEST.search(" ".join(message.split()))
+    if match is None:
+        return None
+    product_text = match.group("product").strip(" .,!?:;\"'")
+    if len(product_text) > 120:
+        return None
+    budget_max: Decimal | None = None
+    budget_match = _BUDGET.search(product_text)
+    if budget_match is not None:
+        raw_amount = budget_match.group("amount").replace(" ", "").replace(",", ".")
+        try:
+            budget_max = Decimal(raw_amount)
+        except InvalidOperation:
+            return None
+        product_text = product_text[: budget_match.start()].strip()
+    parts = product_text.split()
+    if len(parts) < 2:
+        return None
+    raw_brand, model_parts = parts[0], parts[1:]
+    model = " ".join(model_parts).strip(" .,!?:;\"'")
+    if not raw_brand[0].isalpha() or not any(character.isdigit() for character in model):
+        return None
+    brand = (
+        raw_brand
+        if any(character.isupper() for character in raw_brand[1:])
+        else raw_brand.capitalize()
+    )
+    return DirectProductSearch(
+        product=ReferenceProduct(brand=brand, model=model, confidence=0.99),
+        budget_max=budget_max,
+    )
 
 
 def _infer_explicit_reference_product(message: str) -> ReferenceProduct | None:

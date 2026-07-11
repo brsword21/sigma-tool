@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from app.domain.models import ListingCondition, NormalizedListing, Requirements
+from app.product_matching import matches_product_title
 from app.ranking.engine import matches_exact_product, rank_listings
 
 
@@ -81,6 +82,28 @@ def test_exact_product_rejects_accessories_and_description_only_mentions() -> No
     assert matches_exact_product(phone, product) is True
     assert matches_exact_product(case, product) is False
     assert matches_exact_product(unrelated, product) is False
+
+
+def test_exact_product_rejects_an_olx_search_page_from_an_old_cache() -> None:
+    product = {"brand": "Sony", "model": "WF-1000XM4", "specifications": {}}
+    search_page = listing(
+        "olx-search", "199", ListingCondition.GOOD, "Sony WF-1000XM4 używane."
+    ).model_copy(
+        update={
+            "source": "olx_firecrawl",
+            "url": "https://www.olx.pl/elektronika/q-sony-wf-1000xm4/",
+            "title": "Sony WF-1000XM4 - wyniki OLX",
+        }
+    )
+
+    assert matches_exact_product(search_page, product) is False
+
+
+def test_product_title_match_is_canonical_and_rejects_noise_and_accessories() -> None:
+    assert matches_product_title("Samsung Galaxy S25 256 GB", "Samsung Galaxy S25") is True
+    assert matches_product_title("Sony WF-1000XM4 używane", "Sony WF-1000XM4") is True
+    assert matches_product_title("iPhone 17 Air 256 GB", "Samsung Galaxy S25") is False
+    assert matches_product_title("Etui do Samsung Galaxy S25", "Samsung Galaxy S25") is False
 
 
 def test_brief_parameters_lift_matching_listing_and_explanation() -> None:

@@ -11,6 +11,7 @@ from app.api.dependencies import (
     get_services,
 )
 from app.auth.models import AuthenticatedUser
+from app.conversation.service import infer_direct_product_search
 from app.domain.models import ConversationStage, Requirements, RunStatus, SearchDirection
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -66,6 +67,65 @@ async def add_message(
     if services.messages and session.get("user_id"):
         await services.messages.add(session_id, "user", payload.message)
     current = Requirements.model_validate(session.get("requirements") or {})
+    direct_search = infer_direct_product_search(payload.message)
+    if direct_search is not None:
+        product = direct_search.product
+        updates: dict[str, Any] = {"reference_product": product}
+        if direct_search.budget_max is not None:
+            updates["budget_max"] = direct_search.budget_max
+        requirements = current.model_copy(update=updates)
+        product_payload = {
+            "category": requirements.category,
+            "brand": product.brand,
+            "model": product.model,
+            "canonical_name": f"{product.brand} {product.model}",
+            "specifications": {
+                "exact_variant": product.model,
+                "confidence": product.confidence,
+                "data_gaps": [],
+            },
+        }
+        product_id = await services.products.upsert(product_payload)
+        query = {
+            "requirements": requirements.model_dump(mode="json"),
+            "direction": requirements.search_direction.value,
+            "sources_requested": services.orchestrator.source_names,
+            "direct_search": True,
+        }
+        run_id = await services.runs.create(session_id, product_id, query)
+        await services.sessions.update(
+            session_id,
+            {
+                "stage": ConversationStage.SEARCHING.value,
+                "requirements": requirements.model_dump(mode="json"),
+                "selected_product_id": str(product_id),
+                "message_summary": session.get("message_summary") or payload.message,
+            },
+        )
+        background_tasks.add_task(
+            services.orchestrator.run,
+            run_id,
+            session_id,
+            product_id,
+            product_payload,
+            requirements,
+        )
+        response = {
+            "session_id": str(session_id),
+            "stage": ConversationStage.SEARCHING.value,
+            "run_id": str(run_id),
+            "status": RunStatus.PENDING.value,
+            "candidates": [],
+            "is_final_ranking": True,
+            "direct_search": True,
+        }
+        await _save_assistant_message(
+            services,
+            session_id,
+            f"Szukam konkretnych ofert dla {product.brand} {product.model}.",
+            session,
+        )
+        return response
     result = await services.conversation.handle_message(payload.message, current)
     selected_product_id = session.get("selected_product_id")
     if selected_product_id and result.change_intent.value == "rerank" and not result.question:

@@ -93,7 +93,12 @@ export function useShoppingSession() {
       sessionId.current = id
       const response = await sendMessage(id, text)
       if (response.run_id) {
-        setMessages((current) => [...current, message('assistant', 'Aktualizuję ranking bez pobierania ofert od początku.')])
+        setMessages((current) => [...current, message(
+          'assistant',
+          response.direct_search
+            ? 'Szukam teraz konkretnych ofert dla wskazanego modelu.'
+            : 'Aktualizuję ranking bez pobierania ofert od początku.',
+        )])
         await pollRun(response.run_id)
       } else if (response.question) {
         setCandidates([])

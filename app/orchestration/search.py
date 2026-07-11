@@ -15,6 +15,7 @@ from app.domain.models import (
 )
 from app.listings.normalizer import normalize_listing
 from app.observability import log_event
+from app.product_matching import is_direct_olx_listing_url
 from app.product_research.service import ProductResearchService
 from app.ranking.engine import matches_exact_product, rank_listings
 from app.ranking.explanations import RecommendationExplanationService
@@ -28,6 +29,9 @@ from app.sources.base import ListingSource, NewPriceBenchmarkSource
 
 TOP_RESULTS = 5
 TOTAL_RESULTS = 20
+PRODUCT_RESEARCH_TIMEOUT_SECONDS = 15
+SOURCE_TIMEOUT_SECONDS = 25
+RUN_TIMEOUT_SECONDS = 40
 
 
 @dataclass(frozen=True)
@@ -77,6 +81,45 @@ class SearchOrchestrator:
         requirements: Requirements,
         allow_fetch: bool = True,
     ) -> None:
+        try:
+            await asyncio.wait_for(
+                self._run(
+                    run_id,
+                    session_id,
+                    product_id,
+                    product,
+                    requirements,
+                    allow_fetch,
+                ),
+                timeout=RUN_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            error = _safe_error(exc)
+            try:
+                await self._runs.set_status(
+                    run_id,
+                    RunStatus.FAILED,
+                    error_summary={"orchestrator": error},
+                )
+            except Exception as persistence_error:
+                log_event(
+                    "search_run_failure_unpersisted",
+                    run_id=run_id,
+                    error=error,
+                    persistence_error=_safe_error(persistence_error),
+                )
+                return
+            log_event("search_run_failed", run_id=run_id, error=error)
+
+    async def _run(
+        self,
+        run_id: UUID,
+        session_id: UUID,
+        product_id: UUID,
+        product: dict[str, Any],
+        requirements: Requirements,
+        allow_fetch: bool = True,
+    ) -> None:
         del session_id
         started = perf_counter()
         log_event(
@@ -96,7 +139,10 @@ class SearchOrchestrator:
             limit=10,
         )
         brief_result, listing_result, benchmark_result = await asyncio.gather(
-            self._research.get_or_create(product_id, product),
+            asyncio.wait_for(
+                self._research.get_or_create(product_id, product),
+                timeout=PRODUCT_RESEARCH_TIMEOUT_SECONDS,
+            ),
             self._collect_listings(product_id, product, requirements, allow_fetch=allow_fetch),
             _timed_benchmark(self._benchmark_source, benchmark_query, self._clock.now()),
             return_exceptions=True,
@@ -212,9 +258,11 @@ class SearchOrchestrator:
         allow_fetch: bool = True,
     ) -> ListingCollection:
         fresh_since = self._clock.now() - timedelta(hours=24)
-        fresh = await self._listings.find_active(product_id, requirements, fresh_since)
+        fresh = _usable_listings(
+            await self._listings.find_active(product_id, requirements, fresh_since)
+        )
         if not allow_fetch:
-            cached = await self._listings.find_active(product_id, requirements)
+            cached = _usable_listings(await self._listings.find_active(product_id, requirements))
             stale_count = 0
             marked: list[NormalizedListing] = []
             for listing in cached:
@@ -244,7 +292,10 @@ class SearchOrchestrator:
 
         query = SearchQuery(
             product_id=product_id,
-            model=str(product["model"]),
+            model=str(
+                product.get("canonical_name")
+                or f"{product.get('brand', '')} {product['model']}".strip()
+            ),
             budget_max=requirements.budget_max,
             currency=requirements.currency,
             variants=requirements.required_variants,
@@ -293,7 +344,7 @@ class SearchOrchestrator:
         available = _merge_listings(fresh, saved)
         stale_count = 0
         if errors or len(available) < 5:
-            stale = await self._listings.find_active(product_id, requirements)
+            stale = _usable_listings(await self._listings.find_active(product_id, requirements))
             marked_stale: list[NormalizedListing] = []
             for listing in stale:
                 if listing.last_seen_at is not None and listing.last_seen_at < fresh_since:
@@ -317,7 +368,11 @@ async def _timed_search(
 ) -> tuple[list[Any], BaseException | None, int]:
     started = perf_counter()
     try:
-        return await source.search(query), None, round((perf_counter() - started) * 1000)
+        return (
+            await asyncio.wait_for(source.search(query), timeout=SOURCE_TIMEOUT_SECONDS),
+            None,
+            round((perf_counter() - started) * 1000),
+        )
     except BaseException as exc:
         return [], exc, round((perf_counter() - started) * 1000)
 
@@ -331,7 +386,9 @@ async def _timed_benchmark(
         return None, None, 0
     started = perf_counter()
     try:
-        benchmark = await source.get_benchmark(query, retrieved_at)
+        benchmark = await asyncio.wait_for(
+            source.get_benchmark(query, retrieved_at), timeout=SOURCE_TIMEOUT_SECONDS
+        )
         return benchmark, None, round((perf_counter() - started) * 1000)
     except BaseException as exc:
         return None, exc, round((perf_counter() - started) * 1000)
@@ -343,6 +400,14 @@ def _merge_listings(
     merged = {(item.source, item.external_id): item for item in first}
     merged.update({(item.source, item.external_id): item for item in second})
     return list(merged.values())
+
+
+def _usable_listings(listings: list[NormalizedListing]) -> list[NormalizedListing]:
+    return [
+        listing
+        for listing in listings
+        if listing.source != "olx_firecrawl" or is_direct_olx_listing_url(str(listing.url))
+    ]
 
 
 def _order_for_direction(items: list[Any], direction: SearchDirection) -> list[Any]:

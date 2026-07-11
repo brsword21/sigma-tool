@@ -329,6 +329,10 @@ Unikamy:
 
 Interfejs nazywa wykonywane zadanie: „Sprawdzam dokładne warianty”, „Porównuję cenę ze
 średnią rynkową”. Nie pokazuje fałszywie precyzyjnego procentu, jeśli go nie zna.
+Podczas każdej operacji agenta globalny status zmienia się z „Agent gotowy” na „Agent
+działa”. W rozmowie oczekiwanie na odpowiedź sygnalizuje spinner w kolejnym wierszu
+Picky. Oba wskaźniki korzystają z jednego stanu pracy i znikają po odpowiedzi lub
+błędzie.
 
 ### Brak danych
 
@@ -412,6 +416,7 @@ niepewność, stałe proporcje mediów i testy komponentów na skrajnie długich
 | Trzy oddzielne oceny | Jeden zbiorczy score | Zapobiega ukrywaniu słabej oferty lub sprzedawcy za dobrym dopasowaniem produktu. |
 | Semantyczna czerwień | Czerwone odrzucenie | Odrzucenie preferencji nie jest błędem ani zagrożeniem. |
 | Gesty jako dodatkowa warstwa | Interfejs tylko gestowy | Dostępność, obsługa klawiatury i większa kontrola użytkownika. |
+| Jeden stan aktywności agenta | Osobne flagi dla czatu i researchu | Zapewnia spójny status w nagłówku i rozmowie niezależnie od rodzaju wykonywanej operacji. |
 
 ## 21. Element rozpoznawczy
 

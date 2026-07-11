@@ -25,7 +25,11 @@ class FixedClock:
 
 
 class ConversationLLM:
+    def __init__(self) -> None:
+        self.calls = 0
+
     async def structured_response(self, **kwargs: object) -> ConversationOutput:
+        self.calls += 1
         prompt = str(kwargs["user_prompt"])
         has_reference = "AirPods Pro" in prompt
         reference = (

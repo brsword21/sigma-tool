@@ -1,0 +1,22 @@
+{
+  "name": "picky-remotion-demo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts PickyDemo out/picky-demo.mp4 --codec=h264",
+    "still": "remotion still src/index.ts PickyDemo out/preview.png --frame=1080"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.287",
+    "@remotion/renderer": "4.0.287",
+    "remotion": "4.0.287",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "typescript": "5.5.4"
+  }
+}

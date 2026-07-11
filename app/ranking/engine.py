@@ -1,5 +1,3 @@
-import re
-import unicodedata
 from statistics import median
 from typing import Any
 
@@ -10,7 +8,11 @@ from app.domain.models import (
     Requirements,
     ScoreBreakdown,
 )
-from app.product_matching import is_accessory_title
+from app.product_matching import (
+    canonical_product_text,
+    is_direct_olx_listing_url,
+    matches_product_title,
+)
 from app.ranking.risk import risk_penalty
 
 _CONDITION_POINTS = {
@@ -43,29 +45,18 @@ def rank_listings(
 
 
 def matches_exact_product(listing: NormalizedListing, product: dict[str, Any]) -> bool:
+    if listing.source == "olx_firecrawl" and not is_direct_olx_listing_url(str(listing.url)):
+        return False
     specifications = product.get("specifications") or {}
     expected = str(specifications.get("exact_variant") or product.get("model") or "").strip()
     if not expected:
         return False
-    if is_accessory_title(listing.title):
-        return False
-    canonical_expected = _canonical_variant(expected)
-    canonical_title = _canonical_variant(listing.title)
-    canonical_declared_variant = _canonical_variant(listing.exact_variant or "")
+    canonical_expected = canonical_product_text(expected)
+    canonical_declared_variant = canonical_product_text(listing.exact_variant or "")
     return (
-        canonical_expected in canonical_title
+        matches_product_title(listing.title, expected)
         or canonical_expected in canonical_declared_variant
     )
-
-
-def _canonical_variant(value: str) -> str:
-    ascii_value = "".join(
-        character
-        for character in unicodedata.normalize("NFKD", value)
-        if not unicodedata.combining(character)
-    ).casefold()
-    ascii_value = re.sub(r"generac(?:ja|ji|je)|generation", "gen", ascii_value)
-    return re.sub(r"[^a-z0-9]+", "", ascii_value)
 
 
 def _brief_terms(brief: dict[str, Any] | None) -> list[str]:

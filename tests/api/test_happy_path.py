@@ -64,6 +64,29 @@ def test_both_entry_points_reach_three_ranked_offers(
     )
 
 
+def test_explicit_product_listing_request_skips_conversation_llm_and_returns_offers() -> None:
+    services = build_services()
+    conversation_llm = services.conversation._llm
+    app = create_app(Settings(_env_file=None, environment="test"), services=services)
+
+    with TestClient(app) as client:
+        session_id = client.post("/sessions").json()["session_id"]
+        response = client.post(
+            f"/sessions/{session_id}/messages",
+            json={"message": "Znajdź ogłoszenia dla Sony WF-XM0 do 500 zł"},
+        ).json()
+        run = client.get(f"/runs/{response['run_id']}").json()
+
+    assert conversation_llm.calls == 0
+    assert response["direct_search"] is True
+    assert response["candidates"] == []
+    assert run["status"] == "completed"
+    assert len(run["recommendations"]) == 3
+    assert all(item["explanation"] for item in run["recommendations"])
+    session = services.sessions.rows[next(iter(services.sessions.rows))]
+    assert session["requirements"]["budget_max"] == "500"
+
+
 def test_direction_change_updates_session_without_reset() -> None:
     services = build_services()
     app = create_app(Settings(_env_file=None, environment="test"), services=services)

@@ -13,6 +13,7 @@
     "@rolldown/binding-darwin-arm64": "^1.1.5",
     "@supabase/supabase-js": "^2.110.2",
     "@vitejs/plugin-react": "latest",
+    "ogl": "^1.0.11",
     "react": "latest",
     "react-dom": "latest",
     "typescript": "latest",

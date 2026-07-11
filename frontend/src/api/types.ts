@@ -57,6 +57,7 @@ export interface MessageResponse {
   run_id?: string
   status?: RunStatus
   is_final_ranking: boolean
+  direct_search?: boolean
 }
 
 export interface Listing {

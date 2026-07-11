@@ -2,7 +2,11 @@ from decimal import Decimal
 
 import pytest
 
-from app.conversation.service import ConversationService, classify_change
+from app.conversation.service import (
+    ConversationService,
+    classify_change,
+    infer_direct_product_search,
+)
 from app.domain.models import ChangeIntent, Requirements
 from app.llm.schemas import ConversationOutput, ProductSuggestion
 
@@ -112,3 +116,39 @@ def test_change_classifier_separates_rerank_refetch_and_research() -> None:
         )
         is ChangeIntent.NEW_PRODUCT_RESEARCH
     )
+
+
+@pytest.mark.parametrize(
+    ("message", "brand", "model", "budget"),
+    [
+        ("Znajdź ogłoszenia dla Sony WF-1000XM4", "Sony", "WF-1000XM4", None),
+        ("Pokaż mi oferty dla Samsung S25 do 2500 zł", "Samsung", "S25", "2500"),
+        ("Wyszukaj ogłoszenia Apple iPhone 15 Pro", "Apple", "iPhone 15 Pro", None),
+    ],
+)
+def test_explicit_listing_command_detects_exact_product_without_llm(
+    message: str,
+    brand: str,
+    model: str,
+    budget: str | None,
+) -> None:
+    result = infer_direct_product_search(message)
+
+    assert result is not None
+    assert result.product.brand == brand
+    assert result.product.model == model
+    actual_budget = str(result.budget_max) if result.budget_max is not None else None
+    assert actual_budget == budget
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Coś jak AirPods Pro, ale taniej",
+        "Szukam słuchawek Sony z ANC",
+        "Jakie oferty są najlepsze?",
+        "Znajdź ogłoszenia dla słuchawek Sony",
+    ],
+)
+def test_ambiguous_or_comparison_message_does_not_use_direct_search(message: str) -> None:
+    assert infer_direct_product_search(message) is None

@@ -3,6 +3,7 @@ import type { Candidate, SearchDirection } from './api/types'
 import { useAuth } from './auth/AuthProvider'
 import { AccountControls } from './components/AccountControls'
 import { HistoryDrawer } from './components/HistoryDrawer'
+import { LineWaves } from './components/LineWaves'
 import { dateTime, fieldLabel, listingFor, money, scoreLabel, sourceName } from './state/presentation'
 import { useShoppingSession } from './state/useShoppingSession'
 
@@ -121,15 +122,16 @@ function App() {
 
   return (
     <div className={`app phase-${shopping.phase}`}>
+      <LineWaves />
       <header className="topbar">
         <a className="brand" href="#top" aria-label="Picky — początek">
           <span className="brand__symbol">P</span>
           <span>Picky</span>
         </a>
         <div className="topbar__right">
-          <div className="topbar__status">
-            <span className="status-dot" />
-            {shopping.demoMode ? 'dane demonstracyjne' : 'agent gotowy'}
+          <div className={`topbar__status ${shopping.busy ? 'topbar__status--working' : ''}`} role="status" aria-live="polite">
+            <span className="status-dot" aria-hidden="true" />
+            {shopping.busy ? 'agent działa' : shopping.demoMode ? 'dane demonstracyjne' : 'agent gotowy'}
           </div>
           <AccountControls onOpenHistory={() => setHistoryOpen(true)} />
         </div>
@@ -158,6 +160,12 @@ function App() {
                   <p>{item.content}</p>
                 </div>
               ))}
+              {shopping.busy && (
+                <div className="message message--assistant message--working" role="status" aria-label="Picky pracuje">
+                  <span>Picky</span>
+                  <p><i className="thinking-spinner" aria-hidden="true" /></p>
+                </div>
+              )}
             </div>
           )}
 
@@ -225,11 +233,13 @@ function App() {
             <div className="search-state" aria-live="polite">
               <div className="search-rings"><ElectronicsMark /></div>
               <p className="eyebrow">Etap 2 · konkretne oferty</p>
-              <h2>Sprawdzam wariant,<br />ryzyko i sprzedawcę.</h2>
+              <h2>{shopping.run?.status === 'running'
+                ? <>Weryfikuję oferty,<br />ceny i dokładny model.</>
+                : <>Uruchamiam źródła<br />dla wybranego modelu.</>}</h2>
               <ul>
                 <li className="done">Rozpoznanie wybranego modelu</li>
-                <li className="active">Pobieranie i normalizacja ofert</li>
-                <li>Porównanie źródeł i braków danych</li>
+                <li className={shopping.run?.status === 'running' ? 'done' : 'active'}>Połączenie ze źródłami ofert</li>
+                <li className={shopping.run?.status === 'running' ? 'active' : ''}>Odrzucanie obcych modeli i akcesoriów</li>
               </ul>
             </div>
           )}

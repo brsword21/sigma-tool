@@ -1,0 +1,44 @@
+.line-waves {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 2%, #f9fcff 0, transparent 42%),
+    linear-gradient(135deg, #dbe7f7, #edf3fc 52%, #d6e2f4);
+}
+
+.line-waves canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: .96;
+}
+
+.app {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+}
+
+.app > :not(.line-waves) {
+  position: relative;
+  z-index: 1;
+}
+
+.conversation,
+.decision {
+  background: rgba(255, 255, 255, .38);
+  backdrop-filter: blur(10px);
+}
+
+.decision {
+  background: rgba(234, 241, 251, .32);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line-waves canvas {
+    display: none;
+  }
+}

@@ -77,6 +77,11 @@ async def test_ceneo_rejects_noise_mismatched_products_and_missing_prices() -> N
                         "title": "Tactical Shield Cover For Sony WH-1000XM4 Black",
                         "price": "29.99",
                     },
+                    {
+                        "url": "https://www.ceneo.pl/555",
+                        "title": "Comply Truegrip Tw-200-C do Sony WH-1000XM4",
+                        "price": "69.00",
+                    },
                 ]
             },
         )

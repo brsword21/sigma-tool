@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, createSession, listHistory, setAccessTokenProvider } from './client'
+import { ApiError, createSession, getRun, listHistory, setAccessTokenProvider } from './client'
 
 describe('api client', () => {
   afterEach(() => {
     setAccessTokenProvider(async () => null)
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 
   it('parses a successful response', async () => {
@@ -37,5 +38,17 @@ describe('api client', () => {
 
     const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>
     expect(headers.Authorization).toBeUndefined()
+  })
+
+  it('stops a hung run poll instead of leaving the search screen active forever', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
+
+    const outcome = expect(getRun('stuck-run')).rejects.toEqual(
+      new ApiError('Połączenie z serwerem trwa zbyt długo. Spróbuj ponownie.', 408),
+    )
+    await vi.advanceTimersByTimeAsync(8_000)
+
+    await outcome
   })
 })

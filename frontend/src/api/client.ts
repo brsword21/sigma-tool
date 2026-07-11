@@ -11,24 +11,47 @@ type AccessTokenProvider = () => Promise<string | null>
 
 let accessTokenProvider: AccessTokenProvider = async () => null
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 20_000
+const RUN_POLL_REQUEST_TIMEOUT_MS = 8_000
+const TIMEOUT_MESSAGE = 'Połączenie z serwerem trwa zbyt długo. Spróbuj ponownie.'
+
 export function setAccessTokenProvider(provider: AccessTokenProvider) {
   accessTokenProvider = provider
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+): Promise<T> {
   let response: Response
+  let timeout: ReturnType<typeof globalThis.setTimeout> | undefined
+  const controller = new AbortController()
   try {
-    const accessToken = await accessTokenProvider()
-    response = await fetch(`/api${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        ...init?.headers,
-      },
+    const requestPromise = (async () => {
+      const accessToken = await accessTokenProvider()
+      return fetch(`/api${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          ...init?.headers,
+        },
+      })
+    })()
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeout = globalThis.setTimeout(() => {
+        controller.abort()
+        reject(new ApiError(TIMEOUT_MESSAGE, 408))
+      }, timeoutMs)
     })
-  } catch {
+    response = await Promise.race([requestPromise, timeoutPromise])
+  } catch (reason) {
+    if (reason instanceof ApiError) throw reason
     throw new ApiError('Nie udało się połączyć z backendem Picky.', 0)
+  } finally {
+    if (timeout !== undefined) globalThis.clearTimeout(timeout)
   }
   if (!response.ok) {
     let message = response.status >= 500
@@ -63,7 +86,8 @@ export const selectProduct = (sessionId: string, productId: string, direction: S
     { method: 'POST', body: JSON.stringify({ direction }) },
   )
 
-export const getRun = (runId: string) => request<RunResponse>(`/runs/${runId}`)
+export const getRun = (runId: string) =>
+  request<RunResponse>(`/runs/${runId}`, undefined, RUN_POLL_REQUEST_TIMEOUT_MS)
 
 export const refreshRun = (runId: string) =>
   request<{ run_id: string; status: RunResponse['status'] }>(`/runs/${runId}/refresh`, { method: 'POST' })

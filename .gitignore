@@ -3,6 +3,7 @@ frontend/.env.local
 tmp/
 .venv/
 frontend/node_modules/
+video/node_modules/
 frontend/dist/
 frontend/coverage/
 frontend/*.tsbuildinfo

@@ -7,7 +7,6 @@ from app.conversation.service import ConversationService
 from app.llm.client import OpenAIStructuredClient
 from app.orchestration.search import SearchOrchestrator
 from app.product_research.service import ProductResearchService
-from app.ranking.explanations import RecommendationExplanationService
 from app.repositories.supabase import (
     SupabaseListingRepository,
     SupabaseMessageRepository,
@@ -68,7 +67,7 @@ def build_application_services(settings: Settings) -> ApplicationServices:
             )
         ],
         clock=clock,
-        explanations=RecommendationExplanationService(llm),
+        explanations=None,
         benchmark_source=CeneoFirecrawlSource(
             settings.firecrawl_api_key,
             timeout_seconds=settings.firecrawl_timeout_seconds,

@@ -8,6 +8,7 @@ import httpx
 from pydantic import TypeAdapter, ValidationError
 
 from app.domain.models import RawListing, SearchQuery
+from app.product_matching import is_direct_olx_listing_url, matches_product_title
 
 
 class SourceError(RuntimeError):
@@ -27,24 +28,36 @@ class OlxFirecrawlSource:
         self._client = client
 
     async def search(self, query: SearchQuery) -> list[RawListing]:
-        search_terms = [f'site:olx.pl/d/oferta "{query.model}"']
-        if query.variants:
-            search_terms.extend(query.variants)
-        if query.budget_max is not None:
-            search_terms.append(f"do {query.budget_max} {query.currency.value}")
+        search_terms = [query.model, *query.variants]
         payload = {
-            "query": " ".join(search_terms),
+            "query": " ".join(
+                ["site:olx.pl/d/oferta", *(f'"{term}"' for term in search_terms)]
+            ),
             "limit": query.limit,
-            "scrapeOptions": {"formats": ["markdown", "links"]},
+            "sources": ["web"],
+            "includeDomains": ["olx.pl"],
+            "country": "PL",
+            "location": "Poland",
+            "ignoreInvalidURLs": True,
         }
-        data = await self._post("https://api.firecrawl.dev/v1/search", payload)
+        data = await self._post("https://api.firecrawl.dev/v2/search", payload)
         records = _records(data)
         listings: list[RawListing] = []
+        external_ids: set[str] = set()
         for record in records[: query.limit]:
             try:
-                listings.append(_raw_listing(record))
+                listing = _raw_listing(record)
+                if (
+                    listing.price_text
+                    and matches_product_title(listing.title, query.model)
+                    and listing.external_id not in external_ids
+                ):
+                    listings.append(listing)
+                    external_ids.add(listing.external_id)
             except (KeyError, TypeError, ValidationError, ValueError):
                 continue
+        if not listings:
+            raise SourceError("Firecrawl returned no matching priced offers")
         return listings
 
     async def get_details(self, external_id: str) -> RawListing | None:
@@ -85,17 +98,19 @@ class OlxFirecrawlSource:
 def _records(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     data: Any = payload.get("data", payload)
     if isinstance(data, Mapping):
-        data = data.get("data") or data.get("documents") or [data]
+        data = data.get("web") or data.get("data") or data.get("documents") or [data]
     return [item for item in data if isinstance(item, Mapping)] if isinstance(data, list) else []
 
 
 def _raw_listing(record: Mapping[str, Any]) -> RawListing:
     metadata = record.get("metadata") if isinstance(record.get("metadata"), Mapping) else {}
     url = str(record.get("url") or metadata.get("sourceURL") or metadata.get("url"))
-    if "olx.pl" not in urlparse(url).netloc:
-        raise ValueError("not an OLX listing")
+    if not is_direct_olx_listing_url(url):
+        raise ValueError("not a direct OLX listing")
     external_id = (
-        str(record.get("external_id") or metadata.get("og:url") or url).rstrip("/").split("-")[-1]
+        str(record.get("external_id") or metadata.get("og:url") or urlparse(url).path)
+        .rstrip("/")
+        .split("-")[-1]
     )
     title = str(record.get("title") or metadata.get("title") or metadata.get("og:title") or "")
     attributes = dict(record.get("attributes") or {})
