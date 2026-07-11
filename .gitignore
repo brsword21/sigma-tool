@@ -1,5 +1,14 @@
 .env
+prototype/znajdz/config.js
+tmp/
 .venv/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+supabase/.temp/
 __pycache__/
 *.py[cod]
 .pytest_cache/

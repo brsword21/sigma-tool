@@ -17,6 +17,9 @@
     };
   </script>
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>window.SIGMA_CONFIG = window.SIGMA_CONFIG || {};</script>
+  <script src="./config.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
 
@@ -107,6 +110,12 @@
     .settings-switch span { transition: transform .2s ease; }
     .settings-switch[aria-checked="true"] { background: var(--ink); }
     .settings-switch[aria-checked="true"] span { transform: translateX(16px); }
+    .account-backdrop { background: rgba(22,22,22,.24); backdrop-filter: blur(12px); }
+    .account-panel { box-shadow: 0 40px 120px rgba(22,22,22,.24); }
+    .account-panel::before {
+      content: ''; position: absolute; inset: 0 0 auto; height: 4px;
+      background: linear-gradient(90deg, var(--acid), var(--acid) 28%, transparent 28%);
+    }
 
     @keyframes floatA { 0%,100% { transform: translate3d(0,0,0) rotate(-3deg); } 50% { transform: translate3d(10px,-16px,0) rotate(1deg); } }
     @keyframes floatB { 0%,100% { transform: translate3d(0,0,0) rotate(3deg); } 50% { transform: translate3d(-12px,-20px,0) rotate(-2deg); } }
@@ -193,6 +202,12 @@
 
         <div id="settingsMenu" class="menu-in absolute right-0 top-12 hidden w-[280px] overflow-hidden rounded-[22px] border hairline bg-white p-2 shadow-[0_24px_80px_rgba(22,22,22,.16)]" role="dialog" aria-label="Ustawienia agenta">
           <div class="px-3 pb-2 pt-3 text-[11px] font-semibold uppercase tracking-[.14em] text-black/40">Agent</div>
+          <button id="accountButton" type="button" class="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left hover:bg-black/[.035]">
+            <span id="accountIcon" class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-acid text-ink"><i data-lucide="user-round" class="h-4 w-4"></i></span>
+            <span class="min-w-0 flex-1"><span id="accountLabel" class="block truncate text-sm font-semibold">Zaloguj się</span><span id="accountMeta" class="block truncate text-[11px] text-black/40">Zapisuj historię rozmów</span></span>
+            <i data-lucide="chevron-right" class="h-4 w-4 text-black/25"></i>
+          </button>
+          <div class="mx-3 my-1 border-t hairline"></div>
           <label class="flex cursor-pointer items-center justify-between rounded-2xl px-3 py-3 hover:bg-black/[.035]">
             <span class="text-sm font-medium">Automatyczne zamiany</span>
             <button id="autoSwitch" type="button" role="switch" aria-checked="true" class="settings-switch relative h-6 w-10 rounded-full bg-black/15 p-1" aria-label="Automatyczne zamiany">
@@ -297,6 +312,34 @@
     </main>
   </div>
 
+  <div id="accountModal" class="account-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+    <div class="account-panel relative w-full max-w-[430px] overflow-hidden rounded-[28px] bg-[#f8f7f3] p-6 sm:p-8">
+      <button id="closeAccount" type="button" class="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full text-black/45 hover:bg-black/[.05] hover:text-ink" aria-label="Zamknij"><i data-lucide="x" class="h-4 w-4"></i></button>
+      <div id="signedOutView">
+        <div class="mb-8 grid h-12 w-12 place-items-center rounded-[17px] bg-acid"><i data-lucide="mail" class="h-5 w-5"></i></div>
+        <p class="text-[11px] font-semibold uppercase tracking-[.16em] text-black/35">Twoje rozmowy</p>
+        <h2 id="accountTitle" class="mt-2 max-w-[310px] text-[30px] font-semibold leading-[1.08] tracking-[-.045em]">Wróć do tego, czego szukasz.</h2>
+        <p class="mt-3 max-w-[340px] text-sm leading-6 text-black/50">Wyślemy jednorazowy link. Bez hasła i bez blokowania trybu gościa.</p>
+        <form id="loginForm" class="mt-8" novalidate>
+          <label for="loginEmail" class="mb-2 block text-xs font-semibold text-black/55">Adres e-mail</label>
+          <input id="loginEmail" type="email" autocomplete="email" required placeholder="ty@przyklad.pl" class="h-12 w-full rounded-2xl border hairline bg-white px-4 text-sm outline-none transition focus:border-black/50 focus:ring-2 focus:ring-acid">
+          <button id="loginSubmit" type="submit" class="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-wait disabled:opacity-50">Wyślij link logowania <i data-lucide="arrow-right" class="h-4 w-4"></i></button>
+          <p id="loginStatus" class="mt-3 min-h-5 text-xs leading-5 text-black/45" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+      <div id="signedInView" class="hidden">
+        <p class="text-[11px] font-semibold uppercase tracking-[.16em] text-black/35">Zalogowano jako</p>
+        <h2 id="accountEmail" class="mt-2 truncate pr-10 text-xl font-semibold tracking-[-.03em]"></h2>
+        <div class="mt-7 flex items-center justify-between">
+          <p class="text-xs font-semibold uppercase tracking-[.14em] text-black/35">Historia</p>
+          <button id="refreshHistory" type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold text-black/50 hover:bg-black/[.05]">Odśwież</button>
+        </div>
+        <div id="historyList" class="mt-3 max-h-[310px] space-y-2 overflow-y-auto"></div>
+        <button id="logoutButton" type="button" class="mt-6 w-full rounded-2xl border hairline bg-white px-4 py-3 text-sm font-semibold text-black/60 hover:text-ink">Wyloguj się</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" role="status" aria-live="polite" class="toast-in pointer-events-none fixed bottom-5 left-1/2 z-50 hidden -translate-x-1/2 rounded-full bg-ink px-4 py-2.5 text-xs font-medium text-white shadow-xl"></div>
 
   <script>
@@ -364,7 +407,8 @@
       products: [], selectedId: null, loading: false, imageData: null,
       autoReplace: true, priority: 'balance', searchToken: 0,
       lastQuery: '', verificationExpanded: false,
-      suggestionsOpen: false, suggestionIndex: -1
+      suggestionsOpen: false, suggestionIndex: -1,
+      authSession: null, remoteSessionId: null, authClient: null
     };
 
     const $ = selector => document.querySelector(selector);
@@ -377,8 +421,15 @@
       verificationToggleLabel: $('#verificationToggleLabel'), verificationPanel: $('#verificationPanel'),
       suggestions: $('#suggestions'), suggestionsList: $('#suggestionsList'),
       menuButton: $('#menuButton'), menu: $('#settingsMenu'), attachment: $('#attachmentPreview'), preview: $('#previewImage'),
-      imageInput: $('#imageInput'), attach: $('#attachButton'), toast: $('#toast'), autoSwitch: $('#autoSwitch'), priority: $('#priority')
+      imageInput: $('#imageInput'), attach: $('#attachButton'), toast: $('#toast'), autoSwitch: $('#autoSwitch'), priority: $('#priority'),
+      accountButton: $('#accountButton'), accountLabel: $('#accountLabel'), accountMeta: $('#accountMeta'),
+      accountModal: $('#accountModal'), signedOutView: $('#signedOutView'), signedInView: $('#signedInView'),
+      loginForm: $('#loginForm'), loginEmail: $('#loginEmail'), loginSubmit: $('#loginSubmit'), loginStatus: $('#loginStatus'),
+      accountEmail: $('#accountEmail'), historyList: $('#historyList')
     };
+
+    const config = window.SIGMA_CONFIG || {};
+    const apiBaseUrl = (config.apiBaseUrl || 'http://localhost:8000').replace(/\/$/, '');
 
     const money = value => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(value);
     const safe = text => text.replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[char]);
@@ -559,6 +610,121 @@
       showToast.timer = setTimeout(() => el.toast.classList.add('hidden'), 1900);
     }
 
+    function setAccountOpen(open) {
+      el.accountModal.classList.toggle('hidden', !open);
+      el.accountModal.classList.toggle('flex', open);
+      document.body.style.overflow = open ? 'hidden' : '';
+      if (open) {
+        setMenu(false);
+        if (state.authSession) loadHistory();
+        else setTimeout(() => el.loginEmail.focus(), 50);
+      }
+    }
+
+    function applyAuthSession(session) {
+      const previousUserId = state.authSession?.user?.id;
+      state.authSession = session;
+      if (previousUserId !== session?.user?.id) state.remoteSessionId = null;
+      const email = session?.user?.email;
+      el.signedOutView.classList.toggle('hidden', Boolean(email));
+      el.signedInView.classList.toggle('hidden', !email);
+      el.accountLabel.textContent = email || 'Zaloguj się';
+      el.accountMeta.textContent = email ? 'Historia jest zapisywana' : 'Zapisuj historię rozmów';
+      el.accountEmail.textContent = email || '';
+      refreshIcons();
+    }
+
+    async function authenticatedFetch(path, options = {}) {
+      const token = state.authSession?.access_token;
+      if (!token) throw new Error('authentication_required');
+      const headers = new Headers(options.headers || {});
+      headers.set('Authorization', `Bearer ${token}`);
+      if (options.body) headers.set('Content-Type', 'application/json');
+      const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
+      if (response.status === 401) {
+        await state.authClient?.auth.signOut();
+        throw new Error('session_expired');
+      }
+      if (!response.ok) throw new Error(`api_${response.status}`);
+      return response.json();
+    }
+
+    async function ensureRemoteSession() {
+      if (state.remoteSessionId) return state.remoteSessionId;
+      const data = await authenticatedFetch('/sessions', { method: 'POST' });
+      state.remoteSessionId = data.session_id;
+      return state.remoteSessionId;
+    }
+
+    async function persistConversation(text) {
+      if (!state.authSession || !text) return;
+      try {
+        const sessionId = await ensureRemoteSession();
+        await authenticatedFetch(`/sessions/${sessionId}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ message: text })
+        });
+      } catch (error) {
+        if (error.message === 'session_expired') showToast('Sesja wygasła — zaloguj się ponownie');
+      }
+    }
+
+    function historyTitle(session) {
+      return session.message_summary || 'Nowa rozmowa';
+    }
+
+    async function loadHistory() {
+      if (!state.authSession) return;
+      el.historyList.innerHTML = '<p class="rounded-2xl bg-white/60 px-4 py-5 text-center text-xs text-black/40">Wczytuję rozmowy…</p>';
+      try {
+        const data = await authenticatedFetch('/sessions/history');
+        if (!data.sessions.length) {
+          el.historyList.innerHTML = '<div class="rounded-2xl border border-dashed hairline px-4 py-7 text-center"><p class="text-sm font-semibold">Jeszcze tu cicho.</p><p class="mt-1 text-xs text-black/40">Nowe rozmowy pojawią się po pierwszej wiadomości.</p></div>';
+          return;
+        }
+        el.historyList.innerHTML = data.sessions.map(session => `
+          <button type="button" data-history-id="${session.id}" class="group flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left hover:bg-acid/40">
+            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-black/[.045]"><i data-lucide="message-circle" class="h-3.5 w-3.5 text-black/45"></i></span>
+            <span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium">${safe(historyTitle(session))}</span><span class="mt-0.5 block text-[11px] text-black/35">Zapisana rozmowa</span></span>
+            <i data-lucide="arrow-up-right" class="h-3.5 w-3.5 text-black/20 group-hover:text-ink"></i>
+          </button>`).join('');
+        refreshIcons();
+      } catch (error) {
+        el.historyList.innerHTML = '<p class="rounded-2xl bg-red-50 px-4 py-4 text-xs leading-5 text-red-700">Nie udało się pobrać historii. Sprawdź połączenie z API i spróbuj ponownie.</p>';
+      }
+    }
+
+    async function openHistorySession(sessionId) {
+      try {
+        const data = await authenticatedFetch(`/sessions/${sessionId}/history`);
+        reset();
+        state.remoteSessionId = sessionId;
+        data.messages.forEach(message => {
+          if (message.role === 'user') addUserMessage(message.content);
+          else addAgentMessage(message.content);
+        });
+        setAccountOpen(false);
+        showToast('Wczytano rozmowę');
+      } catch (error) {
+        showToast('Nie udało się wczytać rozmowy');
+      }
+    }
+
+    async function initializeAuth() {
+      if (!config.supabaseUrl || !config.supabasePublishableKey || !window.supabase) {
+        el.accountMeta.textContent = 'Uzupełnij config.js';
+        return;
+      }
+      state.authClient = window.supabase.createClient(
+        config.supabaseUrl,
+        config.supabasePublishableKey,
+        { auth: { persistSession: true, detectSessionInUrl: true, flowType: 'pkce' } }
+      );
+      const { data } = await state.authClient.auth.getSession();
+      applyAuthSession(data.session);
+      state.authClient.auth.onAuthStateChange((_event, session) => applyAuthSession(session));
+    }
+
     function setMenu(open) {
       el.menu.classList.toggle('hidden', !open);
       el.menuButton.setAttribute('aria-expanded', String(open));
@@ -642,6 +808,7 @@
       state.lastQuery = text;
       setSuggestionsOpen(false);
       addUserMessage(text);
+      void persistConversation(text);
       const hadImage = Boolean(state.imageData);
       el.input.value = '';
       state.imageData = null;
@@ -797,8 +964,51 @@
       }
     });
 
+    el.accountButton.addEventListener('click', () => setAccountOpen(true));
+    $('#closeAccount').addEventListener('click', () => setAccountOpen(false));
+    el.accountModal.addEventListener('click', event => {
+      if (event.target === el.accountModal) setAccountOpen(false);
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !el.accountModal.classList.contains('hidden')) setAccountOpen(false);
+    });
+    el.loginForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!state.authClient) {
+        el.loginStatus.textContent = 'Najpierw uzupełnij dane Supabase w pliku config.js.';
+        return;
+      }
+      if (!el.loginEmail.checkValidity()) {
+        el.loginStatus.textContent = 'Wpisz poprawny adres e-mail.';
+        el.loginEmail.focus();
+        return;
+      }
+      el.loginSubmit.disabled = true;
+      el.loginStatus.textContent = 'Wysyłam bezpieczny link…';
+      const { error } = await state.authClient.auth.signInWithOtp({
+        email: el.loginEmail.value.trim(),
+        options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` }
+      });
+      el.loginSubmit.disabled = false;
+      el.loginStatus.textContent = error
+        ? 'Nie udało się wysłać linku. Odczekaj chwilę i spróbuj ponownie.'
+        : 'Link jest w skrzynce. Możesz zamknąć to okno.';
+    });
+    $('#logoutButton').addEventListener('click', async () => {
+      await state.authClient?.auth.signOut();
+      applyAuthSession(null);
+      setAccountOpen(false);
+      showToast('Wylogowano');
+    });
+    $('#refreshHistory').addEventListener('click', loadHistory);
+    el.historyList.addEventListener('click', event => {
+      const button = event.target.closest('[data-history-id]');
+      if (button) openHistorySession(button.dataset.historyId);
+    });
+
     syncSend();
     refreshIcons();
+    initializeAuth();
   </script>
 </body>
 </html>

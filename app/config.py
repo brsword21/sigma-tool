@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: float = Field(default=30, gt=0, le=120)
     supabase_url: str | None = None
+    supabase_publishable_key: str | None = None
     supabase_service_role_key: str | None = None
     firecrawl_api_key: str | None = None
     firecrawl_timeout_seconds: float = Field(default=20, gt=0, le=120)

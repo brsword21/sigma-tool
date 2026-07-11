@@ -101,6 +101,15 @@ class RawListing(DomainModel):
     raw_payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class NewPriceBenchmark(DomainModel):
+    product_name: str = Field(min_length=1)
+    price: Decimal = Field(gt=0)
+    currency: Currency = Currency.PLN
+    url: HttpUrl
+    source: str = "ceneo_firecrawl"
+    retrieved_at: datetime
+
+
 class NormalizedListing(DomainModel):
     id: UUID | None = None
     product_id: UUID | None = None

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from app.api.dependencies import ApplicationServices
+from app.auth.service import SupabaseAuthVerifier
 from app.config import Settings
 from app.conversation.service import ConversationService
 from app.llm.client import OpenAIStructuredClient
@@ -9,12 +10,14 @@ from app.product_research.service import ProductResearchService
 from app.ranking.explanations import RecommendationExplanationService
 from app.repositories.supabase import (
     SupabaseListingRepository,
+    SupabaseMessageRepository,
     SupabaseProductRepository,
     SupabaseProductResearchRepository,
     SupabaseRecommendationRepository,
     SupabaseSearchRunRepository,
     SupabaseSessionRepository,
 )
+from app.sources.ceneo import CeneoFirecrawlSource
 from app.sources.firecrawl import OlxFirecrawlSource
 from supabase import create_client
 
@@ -46,6 +49,7 @@ def build_application_services(settings: Settings) -> ApplicationServices:
     )
     clock = SystemClock()
     sessions = SupabaseSessionRepository(database)
+    messages = SupabaseMessageRepository(database)
     products = SupabaseProductRepository(database)
     runs = SupabaseSearchRunRepository(database)
     listings = SupabaseListingRepository(database)
@@ -65,6 +69,10 @@ def build_application_services(settings: Settings) -> ApplicationServices:
         ],
         clock=clock,
         explanations=RecommendationExplanationService(llm),
+        benchmark_source=CeneoFirecrawlSource(
+            settings.firecrawl_api_key,
+            timeout_seconds=settings.firecrawl_timeout_seconds,
+        ),
     )
     return ApplicationServices(
         conversation=ConversationService(llm),
@@ -75,4 +83,6 @@ def build_application_services(settings: Settings) -> ApplicationServices:
         product_research=research_repository,
         orchestrator=orchestrator,
         clock=clock,
+        messages=messages,
+        auth=SupabaseAuthVerifier(database),
     )

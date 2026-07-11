@@ -4,6 +4,10 @@ Backend demonstracyjnego agenta zakupowego dla używanych słuchawek. Przyjmuje 
 albo produkt referencyjny, proponuje 4–6 kierunków, a po wyborze pobiera oferty i osobno
 pokazuje dopasowanie produktu, jakość oferty oraz wiarygodność sprzedawcy.
 
+Repozytorium zawiera również frontend React w katalogu `frontend`. Zachowuje on
+konwersacyjny charakter Sigmy, pokazuje kandydatów jako talię decyzji i podłącza pełny
+przepływ backendu aż do rankingu konkretnych ofert.
+
 ## Uruchomienie
 
 Wymagany jest Python 3.12 oraz lokalny plik `.env` utworzony na podstawie `.env.example`.
@@ -19,15 +23,45 @@ python3.12 -m venv .venv
 Health check jest dostępny pod `GET http://localhost:8000/health`. Domyślne originy CORS
 to `http://localhost:3000` i `http://localhost:5173`.
 
+W drugim terminalu uruchom frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Aplikacja będzie dostępna pod `http://localhost:5173`. Vite przekazuje żądania `/api`
+do backendu na porcie 8000, dlatego frontend nie wymaga osobnego adresu API w kodzie.
+Przycisk dodawania zdjęcia jest na razie celowo nieaktywny. Gdy usługi zewnętrzne nie
+są dostępne, ekran błędu pozwala jawnie uruchomić oznaczony scenariusz demonstracyjny.
+
 ## Baza danych
 
 Przed pierwszym uruchomieniem zastosuj kolejno:
 
 - `supabase/migrations/001_initial_schema.sql`
 - `supabase/migrations/002_demo_hardening.sql`
+- `supabase/migrations/003_auth_chat_history.sql`
+- `supabase/migrations/004_ceneo_new_price_benchmark.sql`
 
 Można wkleić je do SQL Editora developerskiego projektu Supabase albo, dla połączonego
 lokalnego projektu Supabase CLI, wykonać `supabase db push`.
+
+## Opcjonalne logowanie i historia w prototypie statycznym
+
+Starszy interfejs w `prototype/znajdz` obsługuje logowanie magic linkiem przez Supabase
+Auth. Gość może nadal używać aplikacji bez konta, ale tylko rozmowy rozpoczęte po
+zalogowaniu są przypisywane do użytkownika i dostępne w historii. Nowy frontend React
+skupia się na wymaganym flow zakupowym; logowanie nie jest częścią jego zakresu demo.
+
+W Supabase Dashboard otwórz **Authentication → URL Configuration**, ustaw adres strony
+jako Site URL i dodaj lokalny oraz produkcyjny adres do Redirect URLs. Magic link nie
+wróci pod adres, którego nie ma na tej liście.
+
+Backend weryfikuje access token po stronie Supabase i wymaga zastosowania migracji `003`.
+Klucz `SUPABASE_SERVICE_ROLE_KEY` pozostaje wyłącznie w `.env` backendu. Przeglądarka używa
+osobnego publicznego klucza publishable/anon skonfigurowanego zgodnie z instrukcją prototypu.
 
 ## Testy
 
@@ -88,7 +122,10 @@ Faza 5 nie wykonuje checkoutu, zakupu ani płatności i nie jest produkcyjnym sc
 
 ## Dane i ograniczenia demo
 
-- Firecrawl jest jedynym źródłem ofert i ma osobny timeout 20 sekund.
+- Firecrawl obsługuje oferty OLX oraz osobny benchmark najniższej ceny nowego produktu
+  na Ceneo; każde wywołanie ma timeout 20 sekund.
+- Benchmark Ceneo zawiera dokładnie jedną stronę produktu i nie uczestniczy w rankingu
+  ofert używanych. Jest dostępny jako `new_price_benchmark` w `GET /runs/{run_id}`.
 - Pełne pobieranie ofert rusza dopiero po wyborze produktu; późniejsza miękka zmiana
   preferencji wykonuje rerank cache bez ponownego pobierania.
 - Model i generacja są filtrem twardym przed scoringiem.
@@ -98,7 +135,7 @@ Faza 5 nie wykonuje checkoutu, zakupu ani płatności i nie jest produkcyjnym sc
   `unknown`, jeśli payload źródła ich nie zawiera. System ich nie domyśla.
 - Research bez dostarczonego źródła ma `unverified_product_research`, pustą listę źródeł
   i obniżoną pewność.
-- Błąd Firecrawl nie powoduje błędu 500 runu: dostępny cache daje status `partial`, a brak
-  danych kontrolowany status `failed`.
+- Błąd OLX albo Ceneo nie powoduje błędu 500 runu: dostępne wyniki drugiego źródła lub
+  cache dają status `partial`, a brak ofert używanych kontrolowany status `failed`.
 - BackgroundTasks wystarcza do lokalnego demo, ale nie zapewnia trwałości pracy po
   restarcie procesu i nie jest kolejką produkcyjną.

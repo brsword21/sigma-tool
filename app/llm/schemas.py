@@ -1,6 +1,6 @@
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import Field, HttpUrl
+from pydantic import Field, HttpUrl, model_validator
 
 from app.domain.models import ChangeIntent, DomainModel, ReferenceProduct, Requirements
 
@@ -27,16 +27,30 @@ class ProductSuggestion(DomainModel):
 
 class ConversationOutput(DomainModel):
     requirements: Requirements
-    missing_critical_information: bool
+    missing_critical_information: bool = False
     question: str | None = None
     reference_product: ReferenceProduct | None = None
     suggestions: list[ProductSuggestion] = Field(default_factory=list, max_length=10)
     change_intent: ChangeIntent = ChangeIntent.RERANK
 
+    @model_validator(mode="after")
+    def conversation_state_is_consistent(self) -> "ConversationOutput":
+        if self.missing_critical_information:
+            if not self.question or self.suggestions:
+                raise ValueError("clarification requires one question and no suggestions")
+        elif not 4 <= len(self.suggestions) <= 10:
+            raise ValueError("ready conversation requires 4-10 candidates")
+        return self
+
+
+class ResearchParameter(DomainModel):
+    name: str = Field(min_length=1, max_length=60)
+    value: str = Field(min_length=1, max_length=200)
+
 
 class ProductResearchOutput(DomainModel):
     summary: str
-    key_parameters: dict[str, Any]
+    key_parameters: list[ResearchParameter] = Field(default_factory=list, max_length=12)
     second_hand_checks: list[str] = Field(min_length=1, max_length=8)
     known_risks: list[str] = Field(max_length=8)
     sources: list[HttpUrl] = Field(default_factory=list, max_length=10)

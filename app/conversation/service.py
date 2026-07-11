@@ -11,12 +11,16 @@ Rozpoznaj produkt referencyjny, jeśli użytkownik poda markę lub model,
 i zachowaj go w kolejnych turach.
 Zadaj najwyżej jedno istotne pytanie, tylko gdy brakuje budżetu lub zastosowania/ważnej cechy.
 Łącznie w sesji wolno zadać najwyżej 3 pytania. Gdy dane wystarczają, zwróć 4–6 konkretnych modeli.
+Produkt referencyjny razem z budżetem i co najmniej jedną ważną cechą lub zastosowaniem
+jest wystarczającym wejściem: ustaw missing_critical_information=false, question=null
+i zwróć 4–6 propozycji. Nie zwracaj new_product_research bez propozycji modeli.
 Możesz rozważyć maksymalnie 10 kandydatów, ale zwróć tylko najlepsze propozycje z ceną,
 powodami podobieństwa, różnicami i kompromisem.
 Nie decyduj o cache, filtrach ani punktacji.
 Zachowaj wcześniejsze wymagania, których użytkownik nie zmienił.
+Propozycje modeli mogą korzystać z ogólnej wiedzy o produktach, ale nie są ofertami.
 Nie wymyślaj URL-i ani faktów o ofertach. source_url ustaw tylko, gdy URL podał użytkownik;
-w przeciwnym razie pozostaw null i wpisz brak źródła do data_gaps."""
+w przeciwnym razie pozostaw null i wpisz unverified_product_suggestion do data_gaps."""
 
 
 @dataclass(frozen=True)

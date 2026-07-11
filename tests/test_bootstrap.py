@@ -28,7 +28,7 @@ def test_complete_configuration_builds_application_services() -> None:
 
     assert services.sessions._client is database
     assert services.products._client is database
-    assert services.orchestrator.source_names == ["olx_firecrawl"]
+    assert services.orchestrator.source_names == ["olx_firecrawl", "ceneo_firecrawl"]
 
 
 def test_incomplete_configuration_stays_controlled() -> None:
