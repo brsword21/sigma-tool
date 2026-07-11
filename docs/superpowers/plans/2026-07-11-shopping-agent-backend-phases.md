@@ -46,7 +46,7 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 
 **Brama:** ✅ spełniona — decyzje zamrożone, sekrety lokalnie, gałęzie gotowe. Integracja z usługami (Faza 2+) dopiero po smoke teście SDK w środowisku z Fazy 1.
 
-## Faza 1 — Zamrożenie kontraktów i szkielet (Integrator, 25–35 min)
+## Faza 1 — Zamrożenie kontraktów i szkielet (Integrator, 25–35 min) ✅ ZAKOŃCZONA
 
 **Rezultat:** aplikacja startuje, `/health` działa lokalnie, a wszystkie równoległe strumienie importują te same typy.
 
@@ -61,10 +61,10 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 - `app/services/ports.py` — port klienta LLM i zegara.
 - `tests/conftest.py`, `tests/test_health.py` — wspólne fixture'y i pierwszy smoke test.
 
-- [ ] Zapisać publiczne modele Pydantic, enumy i sygnatury protokołów.
-- [ ] Ustalić format błędów API i statusów `search_runs`: `pending`, `running`, `partial`, `completed`, `failed`.
-- [ ] Uruchomić test startu aplikacji i `/health` bez zewnętrznych usług.
-- [ ] Opublikować commit bazowy, z którego wystartują oba workery.
+- [x] Zapisać publiczne modele Pydantic, enumy i sygnatury protokołów.
+- [x] Ustalić format błędów API i statusów `search_runs`: `pending`, `running`, `partial`, `completed`, `failed`.
+- [x] Uruchomić test startu aplikacji i `/health` bez zewnętrznych usług.
+- [x] Przygotować commit bazowy, z którego wystartują oba workery.
 
 **Brama:** workerzy potwierdzają, że nie potrzebują zmian nazw pól ani sygnatur do realizacji swoich zakresów.
 
