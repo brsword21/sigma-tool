@@ -32,19 +32,19 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 - Każdy worker pracuje na osobnej gałęzi/worktree i oddaje mały commit wraz z wynikiem testów.
 - Integrator zatwierdza publiczne typy przed rozpoczęciem Fazy 2; późniejsze zmiany kontraktu wymagają jawnej synchronizacji wszystkich gałęzi.
 
-## Faza 0 — Wejścia i decyzje blokujące (właściciel: człowiek + Integrator, 15–25 min)
+## Faza 0 — Wejścia i decyzje blokujące (właściciel: człowiek + Integrator, 15–25 min) ✅ ZAMKNIĘTA
 
-**Rezultat:** komplet sekretów, przykładowych danych oraz jednoznaczne decyzje eliminujące zgadywanie podczas implementacji.
+**Rezultat:** komplet sekretów, przykładowych danych oraz jednoznaczne decyzje eliminujące zgadywanie podczas implementacji. Szczegóły: `docs/superpowers/plans/2026-07-11-phase0-decisions.md`.
 
 - [x] Potwierdzić dostępny model LLM, jego SDK, nazwę modelu, structured output, limity i budżet. → **OpenAI gpt-4o-mini, SDK openai**
-- [x] Dostarczyć URL projektu Supabase, klucz backendowy i zgodę na wykonanie migracji w środowisku developerskim. → **do założenia, zgoda: tak; szczegóły w phase0-decisions.md**
+- [x] Dostarczyć URL projektu Supabase, klucz backendowy i zgodę na wykonanie migracji w środowisku developerskim. → **projekt dev gotowy, klucze w lokalnym `.env`, zgoda na migracje: tak**
 - [x] Dostarczyć działający kod scrapera OLX wraz z instrukcją uruchomienia i 2–3 zanonimizowanymi odpowiedziami wejście/wyjście. → **brak scrapera; Firecrawl jako jedyne źródło (nie fallback)**
-- [x] Dostarczyć klucz Firecrawl albo jawnie wyłączyć fallback Firecrawl w MVP. → **Firecrawl wchodzi do MVP jako primary source, klucz do dostarczenia**
+- [x] Dostarczyć klucz Firecrawl albo jawnie wyłączyć fallback Firecrawl w MVP. → **Firecrawl w MVP jako primary source, klucz w lokalnym `.env`**
 - [x] Ustalić, czy endpoint wyboru ma natychmiast zwracać `run_id`, a praca ma być uruchamiana przez `BackgroundTasks` — rekomendacja: tak. → **tak, BackgroundTasks + polling**
 - [x] Ustalić jedno środowisko demo, publiczny adres backendu i dozwolone originy CORS. → **lokalnie localhost:8000, CORS: localhost:3000, localhost:5173**
 - [x] Utworzyć trzy worktree/gałęzie i wskazać Integratora jako jedyną osobę scalającą. → **feat/integrator, feat/worker-a, feat/worker-b — utworzone**
 
-**Brama:** nie zaczynać integracji z usługami, dopóki sekrety i próbka OLX nie przejdą prostego smoke testu.
+**Brama:** ✅ spełniona — decyzje zamrożone, sekrety lokalnie, gałęzie gotowe. Integracja z usługami (Faza 2+) dopiero po smoke teście SDK w środowisku z Fazy 1.
 
 ## Faza 1 — Zamrożenie kontraktów i szkielet (Integrator, 25–35 min)
 

@@ -1,7 +1,8 @@
 # Faza 0 — Zapis decyzji blokujących
 
 Data: 2026-07-11  
-Status: **ZAMKNIĘTA**
+Zamknięta: 2026-07-11 (właściciel potwierdził gotowość sekretów)  
+Status: **ZAMKNIĘTA — gotowe do Fazy 1**
 
 ---
 
@@ -10,9 +11,9 @@ Status: **ZAMKNIĘTA**
 | # | Punkt z checklisty | Decyzja |
 |---|---|---|
 | 1 | Model LLM | **OpenAI `gpt-4o-mini`** — SDK `openai` (Python), structured output via `response_format={"type":"json_schema"}`, rate limit: Tier 1 domyślnie |
-| 2 | Supabase | Projekt do założenia przez właściciela na supabase.com; wymagane: `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`. Zgoda na wykonanie migracji w środowisku dev. |
+| 2 | Supabase | Projekt developerski założony; `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` dostarczone lokalnie w `.env`. Zgoda na migracje w dev: **tak**. |
 | 3 | Scraper OLX | **Brak gotowego scrapera.** Firecrawl jest **jedynym i głównym źródłem** ogłoszeń w MVP. Adapter `OlxFirecrawlSource` implementuje `ListingSource` i używa Firecrawl do scrapowania OLX. |
-| 4 | Firecrawl | **Wchodzi do MVP** jako source primary. Klucz `FIRECRAWL_API_KEY` dostarcza właściciel. |
+| 4 | Firecrawl | **Wchodzi do MVP** jako source primary. `FIRECRAWL_API_KEY` dostarczony lokalnie w `.env`. |
 | 5 | BackgroundTasks | **Tak** — `POST /sessions/{id}/products/{pid}/select` zwraca `run_id` natychmiast; praca idzie w `FastAPI BackgroundTasks`; frontend polluje `GET /runs/{run_id}`. |
 | 6 | Środowisko demo | **Lokalnie** — backend `localhost:8000`, CORS: `http://localhost:3000`, `http://localhost:5173`. |
 | 7 | Worktree/gałęzie | **Utworzone:** `feat/integrator`, `feat/worker-a`, `feat/worker-b`. Integrator = jedyna osoba scalająca do `main`. |
@@ -37,13 +38,13 @@ Kontrakty, rozmowa, LLM, orkiestracja — zakres niezmieniony.
 
 ---
 
-## Brakujące sekrety (właściciel dostarcza przed Fazą 2)
+## Sekrety (dostarczone lokalnie, poza gitem)
 
-- [ ] `OPENAI_API_KEY` — klucz OpenAI
-- [ ] `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — po założeniu projektu Supabase
-- [ ] `FIRECRAWL_API_KEY` — klucz Firecrawl
+- [x] `OPENAI_API_KEY` — klucz OpenAI
+- [x] `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — projekt developerski
+- [x] `FIRECRAWL_API_KEY` — klucz Firecrawl
 
-Docelowo umieszczone w pliku `.env` (na podstawie `.env.example`, `.env` w `.gitignore`).
+Plik `.env` trzymany lokalnie na podstawie `.env.example`; `.env` jest w `.gitignore`.
 
 ---
 
@@ -61,9 +62,12 @@ Docelowo umieszczone w pliku `.env` (na podstawie `.env.example`, `.env` w `.git
 
 ---
 
-## Brama wejścia do Fazy 1
+## Brama wejścia
 
-Faza 1 może wystartować natychmiast — nie wymaga żywych sekretów.  
-Faza 2 (integracja) startuje dopiero gdy:
-- `.env` ma wszystkie trzy klucze,
-- smoke test `python -c "import openai, supabase, firecrawl"` przechodzi.
+**Faza 0:** zamknięta. Wszystkie decyzje blokujące i sekrety są gotowe.
+
+**Faza 1:** może wystartować w dowolnym momencie — nie wymaga połączeń z zewnętrznymi usługami.
+
+**Faza 2 (integracja z usługami):** startuje dopiero gdy:
+- lokalny `.env` ma wszystkie trzy klucze (potwierdzone),
+- smoke test `python -c "import openai, supabase, firecrawl"` przechodzi po instalacji zależności z Fazy 1.
