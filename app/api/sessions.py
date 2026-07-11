@@ -27,13 +27,54 @@ async def create_session(services: Services) -> dict[str, Any]:
 
 @router.post("/{session_id}/messages")
 async def add_message(
-    session_id: UUID, payload: MessageRequest, services: Services
+    session_id: UUID,
+    payload: MessageRequest,
+    background_tasks: BackgroundTasks,
+    services: Services,
 ) -> dict[str, Any]:
     session = await services.sessions.get(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail={"code": "session_not_found"})
     current = Requirements.model_validate(session.get("requirements") or {})
     result = await services.conversation.handle_message(payload.message, current)
+    selected_product_id = session.get("selected_product_id")
+    if selected_product_id and result.change_intent.value == "rerank" and not result.question:
+        product_id = UUID(str(selected_product_id))
+        product = await services.products.get(product_id)
+        if product is None:
+            raise HTTPException(status_code=404, detail={"code": "product_not_found"})
+        query = {
+            "requirements": result.requirements.model_dump(mode="json"),
+            "direction": result.requirements.search_direction.value,
+            "sources_requested": [],
+            "cache_only": True,
+        }
+        run_id = await services.runs.create(session_id, product_id, query)
+        await services.sessions.update(
+            session_id,
+            {
+                "stage": ConversationStage.SEARCHING.value,
+                "requirements": result.requirements.model_dump(mode="json"),
+                "message_summary": payload.message,
+            },
+        )
+        background_tasks.add_task(
+            services.orchestrator.run,
+            run_id,
+            session_id,
+            product_id,
+            product,
+            result.requirements,
+            False,
+        )
+        return {
+            "session_id": str(session_id),
+            "stage": ConversationStage.SEARCHING.value,
+            "run_id": str(run_id),
+            "status": RunStatus.PENDING.value,
+            "candidates": [],
+            "is_final_ranking": True,
+        }
     stage = (
         ConversationStage.DISCOVERY
         if result.question
@@ -47,7 +88,13 @@ async def add_message(
                 "brand": suggestion.brand,
                 "model": suggestion.model,
                 "canonical_name": f"{suggestion.brand} {suggestion.model}",
-                "specifications": {"key_features": suggestion.key_features},
+                "specifications": {
+                    "key_features": suggestion.key_features,
+                    "exact_variant": suggestion.exact_variant or suggestion.model,
+                    "source_url": str(suggestion.source_url) if suggestion.source_url else None,
+                    "confidence": suggestion.confidence,
+                    "data_gaps": suggestion.data_gaps,
+                },
             }
         )
         candidate = suggestion.model_dump(mode="json")

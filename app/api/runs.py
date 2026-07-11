@@ -54,12 +54,27 @@ def _present_recommendation(recommendation: dict[str, Any]) -> dict[str, Any]:
     listing = recommendation.get("listings") or recommendation.get("listing") or {}
     attributes = listing.get("attributes") or {}
     breakdown = recommendation.get("score_breakdown") or {}
+    data_gaps = breakdown.get("data_gaps") or listing.get("data_gaps") or attributes.get(
+        "data_gaps", []
+    )
+    seller_signals = listing.get("seller_signals") or attributes.get("seller_signals") or {}
     return {
         **recommendation,
         "source_url": listing.get("url"),
         "retrieved_at": listing.get("retrieved_at") or listing.get("last_seen_at"),
-        "confidence": listing.get("confidence", attributes.get("confidence", 0.5)),
-        "data_gaps": listing.get(
-            "data_gaps", attributes.get("data_gaps", breakdown.get("data_gaps", []))
+        "confidence": breakdown.get(
+            "confidence", listing.get("confidence", attributes.get("confidence", 0.5))
         ),
+        "data_gaps": data_gaps,
+        "is_stale": "stale_cache" in data_gaps,
+        "field_availability": {
+            "seller_reviews": seller_signals.get("seller_reviews", "unknown"),
+            "seller_rating": seller_signals.get("seller_rating", "unknown"),
+            "warranty": listing.get("warranty") or attributes.get("warranty") or "unknown",
+            "returns": listing.get("returns") or attributes.get("returns") or "unknown",
+            "authenticity": attributes.get("authenticity", "unknown"),
+            "battery": attributes.get("battery")
+            or attributes.get("battery_health")
+            or "unknown",
+        },
     }

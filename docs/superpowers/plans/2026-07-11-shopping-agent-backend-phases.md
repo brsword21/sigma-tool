@@ -141,24 +141,36 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 - [ ] Worker A uruchamia migracje na developerskim Supabase i wykonuje smoke test repozytoriów.
 - [ ] Worker B wykonuje jedno kontrolowane pobranie OLX i potwierdza normalizację realnego payloadu.
 - [ ] Integrator wykonuje realne structured output LLM dla rozmowy, researchu i wyjaśnień.
-- [ ] Potwierdzić, które pola dotyczące opinii, sprzedawcy, gwarancji, zwrotu, oryginalności i baterii są realnie dostępne; niedostępne pola oznaczać jako `unknown`, nie uzupełniać ich przez domysł.
-- [ ] Zweryfikować dokładny wariant każdej finalnej oferty i odrzucać niezgodną generację lub wersję przed scoringiem.
-- [ ] Zmierzyć timeout każdego źródła, całkowity czas runu i oznaczenie nieaktualnego cache.
+- [ ] Potwierdzić, które pola dotyczące opinii, sprzedawcy, gwarancji, zwrotu, oryginalności i baterii są realnie dostępne; niedostępne pola oznaczać jako `unknown`, nie uzupełniać ich przez domysł. → **normalizator i API oznaczają braki; potwierdzenie live payloadu czeka na prawidłowy klucz Firecrawl**
+- [x] Zweryfikować dokładny wariant każdej finalnej oferty i odrzucać niezgodną generację lub wersję przed scoringiem.
+- [x] Zmierzyć timeout każdego źródła, całkowity czas runu i oznaczenie nieaktualnego cache.
 - [ ] Przejść scenariusz: „jak AirPods Pro, ale taniej” → minimum cztery modele z ceną → `best_value` → minimum trzy oferty → „ważniejsza jest gwarancja” → rerank bez utraty kontekstu.
-- [ ] Pokazać osobno wynik produktu, oferty i sprzedawcy oraz co najmniej jedno jawne ograniczenie lub brak danych.
-- [ ] Udowodnić w logach, że pełne pobieranie ofert uruchamia się dopiero po zawężeniu kierunku.
-- [ ] Zapisać znane ograniczenia i komendy startowe w `README.md`.
+- [x] Pokazać osobno wynik produktu, oferty i sprzedawcy oraz co najmniej jedno jawne ograniczenie lub brak danych.
+- [x] Udowodnić w logach, że pełne pobieranie ofert uruchamia się dopiero po zawężeniu kierunku.
+- [x] Zapisać znane ograniczenia i komendy startowe w `README.md`.
 
 **Brama końcowa:** komplet kryteriów z `goal.md`, brak błędu 500 przy awarii źródła, brak zmyślonych faktów oraz cały pokaz poniżej trzech minut.
 
-## Faza 5 — Rezerwa hackathonowa, tylko po spełnieniu MVP
+## Faza 5 — Deal Watch / Mandate ✅ ZAKOŃCZONA
 
-- [ ] Dodać drugi adapter, np. eBay, wyłącznie wtedy, gdy nie wymaga zmiany domenowych kontraktów.
-- [ ] Ujednolicić opinie, gwarancję, zwrot i sygnały sprzedawcy z drugiego źródła, zachowując informację o pochodzeniu każdego pola.
-- [ ] Dodać porównanie ceny używanej z ceną nowego produktu referencyjnego lub kandydata.
-- [ ] Buforować research podobieństwa, aby zmiana kierunku wykonywała rerank bez powtarzania zapytań.
-- [ ] Poprawić obserwowalność i logi korelacyjne przez `session_id` i `run_id`.
-- [ ] Nie dodawać Redis/Celery, autoryzacji, płatności ani uczenia rankera w trzygodzinnym oknie.
+**Rezultat:** deterministyczny scenariusz pokazuje, że agent odrzuca pozorne okazje,
+oblicza pełny koszt i emituje pojedynczy audytowalny alert wyłącznie po spełnieniu
+twardych warunków mandatu. Projekt i plan: `docs/superpowers/specs/2026-07-11-phase5-deal-watch-design.md`
+oraz `docs/superpowers/plans/2026-07-11-phase5-deal-watch.md`.
+
+- [x] Dodać mandat `alert_only` z dokładnym wariantem, maksymalnym kosztem końcowym,
+  minimalnym stanem i minimalną oceną sprzedawcy.
+- [x] Obliczać jawny landed cost: cena + dostawa + opłaty + koszt FX − ważny kupon.
+- [x] Zaimplementować decyzje `ignore`, `hold` i `alert` z kodami powodów oraz pełnym
+  rachunkiem kosztu.
+- [x] Dodać sześć deterministycznych zdarzeń: prawdziwa okazja, zły wariant, pułapka
+  dostawy, brak stocku, brak oceny sprzedawcy i fałszywa obniżka.
+- [x] Udostępnić osobne endpointy utworzenia mandatu, oceny zdarzeń, symulacji i historii.
+- [x] Ograniczyć paczkę wejściową do 1–10 unikalnych zdarzeń i odrzucać dodatkowe pola.
+- [x] Zapewnić idempotencję `event_id`, aby ponowienie żądania nie tworzyło drugiego alertu.
+- [x] Udowodnić testami wynik scenariusza: 1 `alert`, 1 `hold`, 4 `ignore`.
+- [x] Zachować izolację od OpenAI, Firecrawl i Supabase oraz nie dodawać zakupu,
+  płatności, Redis ani Celery.
 
 ## Roadmapa po hackathonie
 

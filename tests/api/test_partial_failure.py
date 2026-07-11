@@ -25,3 +25,6 @@ def test_source_failure_keeps_cached_recommendations_and_marks_run_partial() -> 
     assert "fixture_source" in run["error_summary"]
     assert len(run["recommendations"]) == 3
     assert run["recommendations"][0]["listings"]["source"] == "cache"
+    assert run["recommendations"][0]["is_stale"] is True
+    assert run["recommendations"][0]["confidence"] == 0.4
+    assert run["recommendations"][0]["field_availability"]["warranty"] == "unknown"

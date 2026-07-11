@@ -89,7 +89,7 @@ Wyróżnikiem jest połączenie trzech rozdzielonych dziś zadań:
 3. Normalizuje cenę, stan, wariant, lokalizację lub dostawę, gwarancję, zwrot, sprzedawcę, opis, link i czas aktualizacji — o ile dane są dostępne.
 4. Odrzuca oferty niespełniające twardych wymagań lub dotyczące niewłaściwego wariantu.
 5. Oddzielnie ocenia produkt, ofertę i wiarygodność sprzedawcy.
-6. Pokazuje 3–5 najlepszych wyników, rekomenduje jedną ofertę oraz wskazuje zalety, kompromisy, ryzyka i braki danych.
+6. Pokazuje ranking ofert: 5 najlepszych (Top 5) z jedną wyróżnioną rekomendacją oraz do 15 dalszych, słabszych propozycji; dla każdej wskazuje zalety, kompromisy, ryzyka i braki danych. Uzasadnienie pozycji odnosi się do parametrów istotnych dla danego urządzenia, pochodzących z briefu produktowego.
 
 ## 7. Zakres MVP na hackathon
 

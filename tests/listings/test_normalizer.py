@@ -20,3 +20,6 @@ def test_normalizes_polish_olx_listing() -> None:
     assert listing.condition is ListingCondition.VERY_GOOD
     assert listing.color == "blue"
     assert listing.delivery is True
+    assert {"warranty", "returns", "seller_signals", "battery", "authenticity"} <= set(
+        listing.data_gaps
+    )

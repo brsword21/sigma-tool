@@ -25,15 +25,15 @@
 
 ## P1 — fixy funkcjonalne (przed Fazą 4)
 
-- [ ] **F1 (Z2): brief zasila ranking.** W `SearchOrchestrator.run` przekazać wynik briefu do `rank_listings` — `key_parameters` briefu jako dodatkowe terminy dopasowania, `known_risks` jako wejście do `risk_penalty`/uzasadnień. Gather zostaje (ranking i tak następuje po obu wynikach). Gdy brief padnie, ranking działa jak dziś (degradacja, nie blokada).
-- [ ] **F2 (Z3): uzasadnienie pozycji odnosi się do urządzenia.** Rozszerzyć `explanation` rekomendacji o odniesienie do 1–2 parametrów z briefu (np. „stan baterii deklarowany — kluczowy dla TWS"), zamiast samego joinu mocnych stron. Dopuszczalne jedno tanie wywołanie LLM na run dla top 10 albo szablon deterministyczny z briefu.
-- [ ] **F3 (Z4): jedna wyróżniona rekomendacja.** Utrzymać top 10, dodać `recommended: true` dla najlepszej oferty zgodnej z kierunkiem + czytelne „dlaczego ta". Spełnia jednocześnie opis core'a (top 10) i goal.md (rekomendacja jednej opcji).
+- [x] **F1 (Z2): brief zasila ranking.** `SearchOrchestrator.run` przekazuje wynik briefu do `rank_listings(listings, requirements, brief)`. `key_parameters` briefu stają się dodatkowymi terminami dopasowania w komponencie wymagań (blend `0.7*user + 0.3*brief_coverage`, cap 25 zachowany), `known_risks` zasilają uzasadnienie. Gdy brief padnie lub nie ma parametrów, ranking działa identycznie jak przed zmianą (degradacja, nie blokada). Weryfikacja: kolejność `generic → device-fit` odwraca się na `device-fit → generic` po podaniu briefu.
+- [x] **F2 (Z3): uzasadnienie pozycji odnosi się do urządzenia.** `_build_explanation` w `engine.py` buduje `explanation` z 1–2 mocnych stron + „spełnia kluczowe dla tych słuchawek parametry: …" + „na co uważać: …" z briefu. Szablon deterministyczny, bez dodatkowego wywołania LLM. Gdy brak briefu → `explanation=None`, orchestrator używa dotychczasowego fallbacku.
+- [x] **F3 (Z4): Top 5 + 1 wyróżniona + 15 dalszych.** `TOP_RESULTS=5`, `TOTAL_RESULTS=20`. Każda rekomendacja ma `tier` (`top`/`secondary`) i `recommended` (tylko rank 1). Decyzja produktowa: Top 5 z jedną wyróżnioną rekomendacją oraz do 15 słabszych propozycji.
 - [ ] **F4 (Z1, wariant minimalny na MVP):** jawnie oznaczyć pochodzenie cen pierwszej listy — pole `price_basis: "llm_estimate"` w odpowiedzi `/messages` i komunikat, że pierwsza lista jest eksploracyjna (goal.md §5 tego wymaga). Nie udawać researchu online, którego nie ma.
 - [ ] **F5 (Z5): historia rozmowy.** Zamienić nadpisywanie `message_summary` na dopisywanie do listy wiadomości w sesji (kolumna/JSON już w Supabase albo nowa kolumna `messages`). Tani fix, realizuje „wiadomość leci do pamięci czatu".
 
 ## P2 — uspójnienie dokumentów
 
-- [ ] **D1: goal.md §6 i §10** — ujednolicić do: „ranking top 10 z uzasadnieniem pozycji, w tym jedna wyróżniona rekomendacja" (decyzja produktowa; alternatywa: przyciąć kod do 5 — wtedy F3 nadal potrzebny).
+- [x] **D1: goal.md §6** — zaktualizowane do: „Top 5 z jedną wyróżnioną rekomendacją + do 15 dalszych; uzasadnienie pozycji z parametrów briefu". §10.5 (min. 3 oferty) pozostaje spójne.
 - [ ] **D2: plan faz** — odhaczyć faktycznie wykonane punkty Fazy 3, usunąć/oznaczyć jako nieaktualne odwołania do `app/sources/olx.py` i `tests/fixtures/olx/`, dopisać zamrożoną decyzję: „kandydaci Fazy 1 pochodzą z wiedzy LLM (MVP), grounding online przeniesiony do rezerwy/Fazy 6".
 - [ ] **D3: opis core'a do repo** — wkleić opis core'a działania (prompt → porównanie → doprecyzowanie → 2 procesy → ranking top 10 → przejście do oferty) jako sekcję w `goal.md` albo osobny `docs/core-flow.md`, żeby przestał żyć tylko w głowie/wiadomościach.
 
