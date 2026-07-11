@@ -52,6 +52,12 @@ def _data_gaps(raw: RawListing) -> list[str]:
         gaps.append("returns")
     if not attributes & {"seller_rating", "ocena_sprzedawcy"}:
         gaps.append("seller_signals")
+    if not attributes & {"seller_reviews", "liczba_opinii"}:
+        gaps.append("seller_reviews")
+    if not attributes & {"battery", "bateria", "battery_health", "kondycja_baterii"}:
+        gaps.append("battery")
+    if not attributes & {"authenticity", "oryginalnosc", "dowod_zakupu"}:
+        gaps.append("authenticity")
     return gaps
 
 

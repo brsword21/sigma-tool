@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from app.domain.models import ListingCondition, NormalizedListing, Requirements
-from app.ranking.engine import rank_listings
+from app.ranking.engine import matches_exact_product, rank_listings
 
 
 def listing(
@@ -51,3 +51,51 @@ def test_hard_budget_filter_runs_before_scoring() -> None:
         Requirements(budget_max=Decimal("500")),
     )
     assert results == []
+
+
+def test_exact_generation_is_verified_before_scoring() -> None:
+    first_generation = listing(
+        "gen-1", "400", ListingCondition.VERY_GOOD, "Apple AirPods Pro 1. generacji"
+    ).model_copy(update={"title": "Apple AirPods Pro 1. generacji"})
+    second_generation = listing(
+        "gen-2", "450", ListingCondition.VERY_GOOD, "Apple AirPods Pro 2. generacji"
+    ).model_copy(update={"title": "Apple AirPods Pro 2. generacji"})
+    product = {"model": "AirPods Pro 2 gen", "specifications": {}}
+
+    assert matches_exact_product(first_generation, product) is False
+    assert matches_exact_product(second_generation, product) is True
+
+
+def test_brief_parameters_lift_matching_listing_and_explanation() -> None:
+    generic = (
+        "Kompletne sprawne słuchawki z etui, ładowarką i możliwością wysyłki, bez widocznych wad."
+    )
+    with_codec = generic + " Obsługuje kodek LDAC i mają świetny mikrofon."
+    brief = {
+        "key_parameters": {"kodek": "LDAC", "mikrofon": "tak"},
+        "known_risks": ["sprawdź żywotność baterii"],
+    }
+    # Generic offer is a touch cheaper, so it wins on price alone until the brief weighs in.
+    listings = [
+        listing("generic", "380", ListingCondition.VERY_GOOD, generic, 4),
+        listing("device-fit", "420", ListingCondition.VERY_GOOD, with_codec, 4),
+    ]
+    without_brief = rank_listings(listings, Requirements(budget_max=Decimal("500")))
+    with_brief = rank_listings(listings, Requirements(budget_max=Decimal("500")), brief)
+
+    # Same price/condition: the brief is the tie-breaker that promotes the device-fit offer.
+    assert without_brief[0].listing.external_id == "generic"
+    assert with_brief[0].listing.external_id == "device-fit"
+    top, runner_up = with_brief[0], with_brief[1]
+    assert top.explanation is not None and "ldac" in top.explanation.casefold()
+    assert top.product_match_score > runner_up.product_match_score
+
+
+def test_ranking_is_unchanged_when_brief_has_no_parameters() -> None:
+    listings = [listing("a", "400", ListingCondition.VERY_GOOD, "x" * 100, 4)]
+    baseline = rank_listings(listings, Requirements(budget_max=Decimal("500")))
+    with_empty_brief = rank_listings(
+        listings, Requirements(budget_max=Decimal("500")), {"summary": "brak parametrów"}
+    )
+    assert baseline[0].score == with_empty_brief[0].score
+    assert with_empty_brief[0].explanation is None

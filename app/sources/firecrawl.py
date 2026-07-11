@@ -1,4 +1,5 @@
 import asyncio
+import re
 from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlparse
@@ -73,6 +74,10 @@ class OlxFirecrawlSource:
             if not isinstance(result, dict):
                 raise SourceError("Firecrawl returned a non-object response")
             return result
+        except httpx.HTTPStatusError as exc:
+            raise SourceError(
+                f"Firecrawl request failed with HTTP {exc.response.status_code}"
+            ) from exc
         except (TimeoutError, httpx.HTTPError, ValueError) as exc:
             raise SourceError(f"Firecrawl request failed: {type(exc).__name__}") from exc
 
@@ -95,6 +100,9 @@ def _raw_listing(record: Mapping[str, Any]) -> RawListing:
     title = str(record.get("title") or metadata.get("title") or metadata.get("og:title") or "")
     attributes = dict(record.get("attributes") or {})
     price = record.get("price") or metadata.get("product:price:amount") or attributes.get("price")
+    content = str(record.get("markdown") or record.get("description") or "")
+    if price is None:
+        price = _price_from_text(f"{title} {content}")
     images = record.get("image_urls") or metadata.get("og:image") or []
     if isinstance(images, str):
         images = [images]
@@ -104,8 +112,17 @@ def _raw_listing(record: Mapping[str, Any]) -> RawListing:
         url=url,
         title=title,
         price_text=str(price) if price is not None else None,
-        description=str(record.get("markdown") or record.get("description") or "") or None,
+        description=content or None,
         attributes=attributes,
         image_urls=TypeAdapter(list[str]).validate_python(images),
         raw_payload=dict(record),
     )
+
+
+def _price_from_text(value: str) -> str | None:
+    match = re.search(
+        r"(?<!\d)(\d{1,3}(?:[ .]\d{3})*|\d+)(?:[,.]\d{1,2})?\s*(?:zł|PLN)",
+        value,
+        re.IGNORECASE,
+    )
+    return match.group(0) if match else None

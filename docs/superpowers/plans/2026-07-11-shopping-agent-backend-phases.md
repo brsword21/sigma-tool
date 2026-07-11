@@ -141,13 +141,13 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 - [ ] Worker A uruchamia migracje na developerskim Supabase i wykonuje smoke test repozytoriów.
 - [ ] Worker B wykonuje jedno kontrolowane pobranie OLX i potwierdza normalizację realnego payloadu.
 - [ ] Integrator wykonuje realne structured output LLM dla rozmowy, researchu i wyjaśnień.
-- [ ] Potwierdzić, które pola dotyczące opinii, sprzedawcy, gwarancji, zwrotu, oryginalności i baterii są realnie dostępne; niedostępne pola oznaczać jako `unknown`, nie uzupełniać ich przez domysł.
-- [ ] Zweryfikować dokładny wariant każdej finalnej oferty i odrzucać niezgodną generację lub wersję przed scoringiem.
-- [ ] Zmierzyć timeout każdego źródła, całkowity czas runu i oznaczenie nieaktualnego cache.
+- [ ] Potwierdzić, które pola dotyczące opinii, sprzedawcy, gwarancji, zwrotu, oryginalności i baterii są realnie dostępne; niedostępne pola oznaczać jako `unknown`, nie uzupełniać ich przez domysł. → **normalizator i API oznaczają braki; potwierdzenie live payloadu czeka na prawidłowy klucz Firecrawl**
+- [x] Zweryfikować dokładny wariant każdej finalnej oferty i odrzucać niezgodną generację lub wersję przed scoringiem.
+- [x] Zmierzyć timeout każdego źródła, całkowity czas runu i oznaczenie nieaktualnego cache.
 - [ ] Przejść scenariusz: „jak AirPods Pro, ale taniej” → minimum cztery modele z ceną → `best_value` → minimum trzy oferty → „ważniejsza jest gwarancja” → rerank bez utraty kontekstu.
-- [ ] Pokazać osobno wynik produktu, oferty i sprzedawcy oraz co najmniej jedno jawne ograniczenie lub brak danych.
-- [ ] Udowodnić w logach, że pełne pobieranie ofert uruchamia się dopiero po zawężeniu kierunku.
-- [ ] Zapisać znane ograniczenia i komendy startowe w `README.md`.
+- [x] Pokazać osobno wynik produktu, oferty i sprzedawcy oraz co najmniej jedno jawne ograniczenie lub brak danych.
+- [x] Udowodnić w logach, że pełne pobieranie ofert uruchamia się dopiero po zawężeniu kierunku.
+- [x] Zapisać znane ograniczenia i komendy startowe w `README.md`.
 
 **Brama końcowa:** komplet kryteriów z `goal.md`, brak błędu 500 przy awarii źródła, brak zmyślonych faktów oraz cały pokaz poniżej trzech minut.
 

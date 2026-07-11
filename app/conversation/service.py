@@ -14,7 +14,9 @@ Zadaj najwyżej jedno istotne pytanie, tylko gdy brakuje budżetu lub zastosowan
 Możesz rozważyć maksymalnie 10 kandydatów, ale zwróć tylko najlepsze propozycje z ceną,
 powodami podobieństwa, różnicami i kompromisem.
 Nie decyduj o cache, filtrach ani punktacji.
-Zachowaj wcześniejsze wymagania, których użytkownik nie zmienił."""
+Zachowaj wcześniejsze wymagania, których użytkownik nie zmienił.
+Nie wymyślaj URL-i ani faktów o ofertach. source_url ustaw tylko, gdy URL podał użytkownik;
+w przeciwnym razie pozostaw null i wpisz brak źródła do data_gaps."""
 
 
 @dataclass(frozen=True)

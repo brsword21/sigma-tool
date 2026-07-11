@@ -18,6 +18,7 @@ class ProductSuggestion(DomainModel):
     source_url: HttpUrl | None = None
     confidence: float = Field(default=0.5, ge=0, le=1)
     data_gaps: list[str] = Field(default_factory=list)
+    exact_variant: str | None = None
 
     @property
     def estimated_price(self) -> int:
@@ -38,5 +39,18 @@ class ProductResearchOutput(DomainModel):
     key_parameters: dict[str, Any]
     second_hand_checks: list[str] = Field(min_length=1, max_length=8)
     known_risks: list[str] = Field(max_length=8)
-    sources: list[HttpUrl] = Field(min_length=1, max_length=10)
+    sources: list[HttpUrl] = Field(default_factory=list, max_length=10)
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    data_gaps: list[str] = Field(default_factory=list)
     research_version: Literal["v1"] = "v1"
+
+
+class RecommendationExplanation(DomainModel):
+    external_id: str
+    strengths: list[str] = Field(default_factory=list, max_length=3)
+    risk_or_tradeoff: str | None = None
+    explanation: str
+
+
+class RecommendationExplanationsOutput(DomainModel):
+    items: list[RecommendationExplanation] = Field(max_length=10)

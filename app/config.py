@@ -22,9 +22,34 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
+    openai_timeout_seconds: float = Field(default=30, gt=0, le=120)
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
     firecrawl_api_key: str | None = None
+    firecrawl_timeout_seconds: float = Field(default=20, gt=0, le=120)
+    demo_timeout_seconds: float = Field(default=180, gt=0, le=300)
+
+    @property
+    def external_services_configured(self) -> bool:
+        return all(
+            self.is_real_service_value(value)
+            for value in (
+                self.openai_api_key,
+                self.supabase_url,
+                self.supabase_service_role_key,
+                self.firecrawl_api_key,
+            )
+        )
+
+    @staticmethod
+    def is_real_service_value(value: str | None) -> bool:
+        return bool(
+            value
+            and "..." not in value
+            and "<" not in value
+            and ">" not in value
+            and not value.casefold().startswith(("your-", "replace-"))
+        )
 
     @field_validator("cors_origins", mode="before")
     @classmethod

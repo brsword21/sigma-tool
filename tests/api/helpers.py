@@ -221,9 +221,11 @@ class Source:
 
     def __init__(self, *, fails: bool = False) -> None:
         self.fails = fails
+        self.calls = 0
 
     async def search(self, query: object) -> list[RawListing]:
         del query
+        self.calls += 1
         if self.fails:
             raise RuntimeError("source unavailable")
         return [
