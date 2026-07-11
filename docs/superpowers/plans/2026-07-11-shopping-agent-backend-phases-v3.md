@@ -1,349 +1,333 @@
-# Shopping Agent Backend — Implementation Plan and Roadmap 3.0
+# Shopping Agent Backend — Implementation Plan and Roadmap 3.1
 
-> **Priorytet wymagań:** źródłem prawdy jest `brainstorm.md` oraz wynikający z niego agent do używanej elektroniki. Case „AI Shopping Assistant” jest materiałem uzupełniającym. Uwzględniamy z niego tylko elementy, których brakuje w naszym rozwiązaniu i które nie zmieniają wybranego produktu, kategorii ani głównego przepływu MVP.
+> **Źródło prawdy:** `brainstorm.md`, decyzje produktowe w `goal.md` oraz uzgodnienia z 2026-07-11. Case „AI Shopping Assistant” rozszerza nasz agentowy przepływ o monitoring, alert, checkout i bezpieczną symulację zakupu, ale nie zmienia kategorii demonstracyjnej ani wejścia od potrzeby lub produktu referencyjnego.
 
-**Goal:** Dostarczyć demonstracyjne MVP backendu agenta zakupowego dla używanych słuchawek. Agent przyjmuje potrzebę lub produkt referencyjny, pokazuje 4–6 podobnych modeli, pozwala użytkownikowi skorygować kierunek, a następnie porównuje konkretne oferty i oddzielnie ocenia produkt, ofertę oraz sprzedawcę.
+**Goal:** Zbudować progresywnego agenta do używanych słuchawek. Pierwszy prompt od razu zwraca trzy propozycje produktów z orientacyjnymi cenami i wskazuje aktualnie najlepszą. Pogłębiony research pracuje w tle i aktualizuje wynik po potwierdzeniu lub korekcie cech. Po ustaleniu dokładnego produktu agent monitoruje oferty, wykrywa najlepszą zweryfikowaną okazję, tworzy jeden alert i checkout, a przy jawnie zatwierdzonym mandacie wykonuje bezpieczny symulowany zakup.
 
-**Architecture:** Modularny monolit FastAPI zapisuje sesję, wymagania, produkt referencyjny, kandydatów, oferty i rekomendacje w Supabase. OpenAI odpowiada za interpretację języka i ustrukturyzowany research. Kod deterministyczny kontroluje warianty, cache, normalizację, koszt końcowy, weryfikację ofert, ranking i audyt. Firecrawl pozostaje pierwszym źródłem realnych ofert, a kontrolowany zestaw danych zapewnia stabilność demo.
+**Architecture:** Modularny monolit FastAPI używa jednego progresywnego `research_run` zamiast dwóch osobnych etapów wyszukiwania. Krótki research z realnego źródła zwraca Top 3 oraz `run_id`; `BackgroundTasks` pogłębia wynik. Potwierdzenie cech blokuje `ProductIdentity` i tworzy trwały `hunt`. Początkowy snapshot huntu pochodzi z realnego źródła, a kolejne zdarzenia demo są deterministyczne. Supabase przechowuje sesje, runy, briefy, produkty, obserwacje, mandaty, alerty, checkouty, symulowane zakupy i receipts.
 
-**Tech Stack:** Python 3.12, FastAPI, Pydantic 2, Supabase/PostgreSQL, pytest/pytest-asyncio, httpx, OpenAI structured output oraz Firecrawl.
+**Tech Stack:** Python 3.12, FastAPI, Pydantic 2, Supabase/PostgreSQL, pytest/pytest-asyncio, httpx, OpenAI structured output i Firecrawl. MVP nie wykonuje prawdziwych płatności ani realnego zakupu na marketplace.
 
-## 1. Hierarchia zakresu
+## 1. Zamrożone decyzje produktowe
 
-### Rdzeń z brainstormu — bez zmian
+1. Pierwsza odpowiedź zawiera dokładnie trzy propozycje produktów, a aktualnie najlepsza jest pierwsza.
+2. Propozycje mają orientacyjną cenę, kluczowe cechy, różnice, kompromis i poziom pewności.
+3. Nie ma osobnego przejścia „lista kandydatów → pełny research”. Jeden run zwraca wynik progresywnie.
+4. Krótka część researchu korzysta z realnego źródła i zwraca wynik możliwie szybko; pogłębiona analiza działa w tle.
+5. Po pierwszej iteracji użytkownik potwierdza albo poprawia odczytane cechy. Akceptacja aktualnego lidera nie wymaga dodatkowego wyboru produktu.
+6. Po ustaleniu dokładnego produktu automatycznie powstaje ciągły hunt ofert.
+7. Początkowe oferty huntu są realne; kolejne zdarzenia w demo są deterministyczne.
+8. Alert jest zapisywany jako JSON i pobierany przez polling interfejsu. Warstwa providerów ma umożliwiać późniejsze dodanie e-maila.
+9. Najlepsza zweryfikowana oferta jest eskalowana do użytkownika, jeśli nie istnieje pasujący jawny mandat automatycznego zakupu.
+10. Warunki auto-buy podaje użytkownik i zatwierdza osobno. LLM nie może wywnioskować zgody na wydanie pieniędzy.
+11. Zakup i checkout są w MVP symulowane.
+12. Mandat używa wcześniej zdefiniowanych priorytetów, twardych wymagań, dokładnego wariantu i maksymalnego kosztu końcowego.
 
-- Jedna kategoria MVP: używane słuchawki.
-- Dwa wejścia: opis potrzeby albo produkt referencyjny.
-- Produkt referencyjny, np. AirPods Pro, jest skrótem preferencji, nie jedynym dozwolonym modelem.
-- Tani research pokazuje 4–6 kandydatów z ceną, podobieństwami, różnicami i kompromisem.
-- Użytkownik potwierdza lub poprawia kierunek przed pełnym pobraniem ofert.
-- Pełne wyszukiwanie skupia się na wybranym modelu i zwraca co najmniej trzy oferty.
-- Ranking rozdziela dopasowanie produktu, jakość oferty i wiarygodność sprzedawcy.
-- Braki danych, niepewność i źródła są jawne.
-- Zmiana pojedynczej preferencji nie resetuje rozmowy ani wcześniejszego researchu.
+## 2. Docelowy przepływ
 
-### Brakujące elementy zaczerpnięte z case'u
+### 2.1 — Prompt i szybki wynik
 
-- Porównywanie kosztu końcowego, a nie wyłącznie ceny ogłoszenia.
-- Silniejsze rozpoznawanie tego samego produktu i dokładnego wariantu pomiędzy niejednolitymi tytułami.
-- Weryfikacja aktualności, dostępności, sprzedawcy, bait listings i pozornych promocji.
-- Deterministyczny zestaw ofert i zdarzeń do stabilnego testowania arytmetyki oraz decyzji.
-- Audytowalne uzasadnienie: dane wejściowe, źródła, obliczenia, powody odrzucenia i wynik.
-- Testy pułapek oraz mierzalna precyzja rekomendacji.
-- Ograniczanie zbędnych powiadomień, jeśli po MVP dodamy monitoring okazji.
+- Użytkownik opisuje potrzebę albo produkt referencyjny.
+- Backend interpretuje wymagania i uruchamia `research_run`.
+- W kontrolowanym budżecie czasu pobiera realne dane i zwraca Top 3 z liderem.
+- Odpowiedź zawiera `run_id`, `research_status=deepening` i wersję wyniku.
 
-### Elementy case'u nieuwzględniane w MVP
+### 2.2 — Pogłębienie w tle
 
-- Zmiana kategorii demonstracyjnej na sneakersy.
-- Skupienie całego produktu na jednym wcześniej znanym modelu.
-- Automatyczny zakup i prawdziwe wydawanie pieniędzy.
-- Standing mandate, delegowana płatność i integracja PSP.
-- Ciągły monitoring wszystkich sklepów jako warunek ukończenia hackathonu.
-- Produkcyjny system transgranicznych ceł i podatków dla wielu jurysdykcji.
+- `BackgroundTasks` rozszerza research o dokładniejsze cechy, ceny, warianty, źródła i ryzyka.
+- `GET /runs/{run_id}` zwraca najnowszą wersję Top 3.
+- Nowy wynik zastępuje poprzedni tylko wtedy, gdy ma nowszą wersję i wystarczające dowody.
 
-Te elementy mogą pojawić się w roadmapie, ale nie mogą opóźnić podstawowego przepływu z brainstormu.
+### 2.3 — Potwierdzenie cech
 
-## 2. Status obecnej implementacji
+- Czat pokazuje odczytane cechy lidera i prosi o potwierdzenie lub korektę.
+- Korekta aktualizuje wymagania i inteligentnie ponownie wykorzystuje dotychczasowe dane.
+- Czysta zmiana priorytetu wykonuje rerank; brakujące dane uruchamiają refetch; zmiana produktu uruchamia nowy research.
 
-- Fazy bazowe, modele domenowe, repozytoria, źródło, normalizacja, ranking i API powstały w commitach wcześniejszych faz.
-- Oba punkty wejścia dochodzą na mockach do 4–6 kandydatów i minimum trzech ofert.
-- Działa wybór `most_similar`, `best_quality`, `lowest_price` i `best_value`.
-- API pokazuje osobno `product_match_score`, `offer_quality_score` oraz `seller_trust_score`.
-- Brakuje pełnego rerankingu po zmianie naturalnojęzykowej preferencji na etapie wyników.
-- Cena jest obecnie głównie ceną oferty; brakuje pełnego, audytowalnego kosztu końcowego.
-- Dokładny wariant jest filtrowany, ale matching wymaga wzmocnienia dla niejednolitych tytułów i brakujących identyfikatorów.
-- Brakuje osobnego testowego zestawu bait listings, fake discounts, błędnych wariantów i nieaktualnych ofert.
+### 2.4 — Zablokowanie produktu
 
-## 3. Globalne ograniczenia MVP 3.0
+- Po akceptacji powstaje kanoniczny `ProductIdentity`.
+- Tożsamość obejmuje markę, model, generację i właściwe dla słuchawek cechy wariantu.
+- `possible_match` nie może zostać automatycznie zablokowane jako dokładny produkt.
 
-- Kategoria: używane słuchawki.
-- Referencyjny scenariusz: „coś jak AirPods Pro, ale taniej, z dobrym ANC”.
-- Najwyżej trzy pytania doprecyzowujące w sesji.
-- Pierwsza lista: 4–6 modeli; nie jest finalnym rankingiem ofert.
-- Pełne pobieranie ofert rozpoczyna się dopiero po wyborze kierunku lub modelu.
-- Minimum trzy konkretne oferty właściwego wariantu.
-- Koszt końcowy obejmuje cenę, dostawę i znane obowiązkowe opłaty. FX, cło i kupony są uwzględniane tylko wtedy, gdy dotyczą źródła i dane są dostępne.
-- Nieznanej opłaty nie wolno przyjąć jako zero bez jawnego oznaczenia niepewności.
-- Automatyczny zakup, płatności i standing mandate pozostają poza MVP.
-- LLM nie decyduje o twardych filtrach, cache, arytmetyce kosztu ani końcowym wyniku punktowym.
-- Kontrolowane dane demo są dozwolone i muszą być jawnie odróżnione od ofert pobranych na żywo.
+### 2.5 — Monitoring
 
-## 4. Główny przepływ użytkownika
+- Backend tworzy hunt dla zablokowanego produktu i zapisuje priorytety użytkownika.
+- Pierwszy snapshot ofert pochodzi z Firecrawl lub innego realnego adaptera.
+- Kolejne ticki demo odtwarzają deterministyczne zmiany ceny, dostawy, stocku, kuponu i dostępności.
+- Każdy tick ponownie wykonuje matching, landed cost, verification oraz ranking.
 
-### 4.1 — Przyjęcie zapytania
+### 2.6 — Najlepsza oferta i eskalacja
 
-Użytkownik podaje potrzebę albo produkt referencyjny, np. „Chcę słuchawki podobne do AirPods Pro, ale tańsze i z dobrym ANC”.
+- Oferta musi być exact match, mieścić się w hard capach i przejść weryfikację.
+- Nowa najlepsza oferta tworzy jeden alert dla danej wersji briefu i okazji.
+- Bez mandatu alert ma status `awaiting_user` i jest eskalacją do użytkownika.
+- Z mandatem oferta przechodzi do symulowanego zakupu, jeżeli wszystkie warunki są jednoznacznie spełnione.
 
-### 4.2 — Rozpoznanie intencji
+### 2.7 — Checkout, zakup i receipt
 
-Agent rozpoznaje kategorię, budżet, produkt referencyjny, wymagane cechy i prawdopodobne preferencje.
+- Alert zawiera przygotowany `checkout_intent`.
+- Użytkownik może zatwierdzić symulowany zakup jednym wywołaniem.
+- Aktywny mandat pozwala wykonać ten sam zakup jako idempotentną funkcję w tle.
+- Receipt zapisuje dane produktu, ofertę, koszt końcowy, sprzedawcę, warunki mandatu, dowody i powód decyzji.
 
-### 4.3 — Minimalne doprecyzowanie
+## 3. Elementy istniejącego backendu do wykorzystania
 
-Agent zadaje jedno pytanie tylko wtedy, gdy odpowiedź realnie zmieni listę kandydatów. W całej sesji może zadać najwyżej trzy pytania.
+### Gotowa baza
 
-### 4.4 — Tani research kandydatów
+- FastAPI, konfiguracja, `/health` i format błędów;
+- sesje, produkty, runy i statusy `pending`, `running`, `partial`, `completed`, `failed`;
+- OpenAI structured output z walidacją Pydantic;
+- protokoły repozytoriów i implementacje Supabase;
+- `ListingSource`, Firecrawl, normalizacja ofert i idempotentny upsert;
+- cache, twarde filtry, izolacja błędów i ranking;
+- oddzielne oceny produktu, oferty i sprzedawcy;
+- `BackgroundTasks` i polling runu.
 
-Agent analizuje maksymalnie około 10 modeli i wybiera 4–6 sensownych alternatyw. Nie pobiera jeszcze pełnego zestawu ogłoszeń.
+### Kontrakty wymagające zmiany
 
-### 4.5 — Prezentacja modeli
+- kandydaci 4–6 → dokładnie trzy progresywne propozycje;
+- osobny endpoint wyboru produktu → potwierdzenie cech i automatyczne zablokowanie lidera;
+- jednorazowy search run → research run z wersjonowanymi wynikami oraz późniejszy hunt;
+- cena oferty → `LandedCostBreakdown`;
+- proste dopasowanie wariantu → `exact_match`/`possible_match`/`mismatch` z dowodami;
+- rekomendacja → alert, checkout intent, purchase simulation i receipt;
+- brak zgody zakupowej → wersjonowany i odwoływalny `StandingMandate`.
 
-Każdy kandydat ma orientacyjną cenę, podobieństwa, różnice, uzasadnienie i główny kompromis. Lista jest oznaczona jako etap eksploracji.
+## Faza 0 — Aktualizacja kontraktów i migracja ze starego przepływu
 
-### 4.6 — Potwierdzenie lub korekta kierunku
+**Cel:** usunąć założenie dwóch osobnych etapów bez utraty działających komponentów.
 
-Użytkownik wybiera model albo kierunek: najbardziej podobny, najlepsza jakość, najniższa cena lub najlepszy stosunek ceny do jakości. Może też poprawić wymagania bez resetu sesji.
+**Planowane pliki:** `app/domain/models.py`, `app/llm/schemas.py`, `app/api/sessions.py`, `app/api/runs.py`, `docs/superpowers/specs/2026-07-11-shopping-agent-backend-design.md`.
 
-### 4.7 — Pobranie konkretnych ofert
+- [ ] Zmienić kontrakt discovery na dokładnie trzy `ProductProposal`.
+- [ ] Dodać `proposal_rank`, `is_current_best`, `estimated_price_range`, `result_version` i `research_status`.
+- [ ] Dodać `InferredFeature` z wartością, pewnością i statusem potwierdzenia.
+- [ ] Zastąpić obowiązkowy wybór produktu akcją `confirm_features`/`correct_features`.
+- [ ] Pozostawić endpoint wyboru jako kompatybilność przejściową, ale nie używać go w nowym happy pathie.
+- [ ] Dodać migrację sesji ze starego `PRODUCT_SELECTION` do progresywnego `RESEARCHING`/`CONFIRMING`.
+- [ ] Zaktualizować testy kontraktowe API i specyfikację.
 
-Backend sprawdza cache, a następnie pobiera oferty wybranego modelu, jeśli dane są niewystarczające lub nieaktualne.
+**Brama:** stary kod nie zwraca 4–6 kandydatów w nowym kontrakcie, a trzy propozycje mają stabilną kolejność i wersję.
 
-### 4.8 — Exact-product i exact-variant matching
+## Faza 1 — Natychmiastowy Top 3 i pogłębiony research w tle
 
-Oferty są normalizowane i klasyfikowane jako `exact_match`, `possible_match` albo `mismatch`. Tylko `exact_match` może trafić do finalnego rankingu; `possible_match` jest jawnie pokazane jako wymagające weryfikacji.
+**Cel:** pierwszy prompt zwraca użyteczny wynik bez czekania na pełny research.
 
-### 4.9 — Obliczenie kosztu końcowego
+**Planowane pliki:** `app/product_research/progressive.py`, `app/orchestration/research.py`, `app/api/sessions.py`, `app/api/runs.py`, `tests/api/test_progressive_research.py`.
 
-Backend liczy cenę wraz z dostawą i dostępnymi obowiązkowymi opłatami. Jeśli występują FX, cło lub kupon, zapisuje pełne składowe, kurs, ważność i czas obliczenia.
+- [ ] Uruchomić krótki research realnego źródła w kontrolowanym budżecie czasu.
+- [ ] Zwrócić trzy propozycje, aktualnego lidera i `run_id`.
+- [ ] Jeśli realne źródło nie odpowie w budżecie, zwrócić jawnie oznaczony świeży cache zamiast fikcyjnej ceny.
+- [ ] Kontynuować pogłębiony research przez `BackgroundTasks`.
+- [ ] Wersjonować wyniki i aktualizować Top 3 atomowo.
+- [ ] Zachować źródło, czas i pewność każdej ceny oraz cechy.
+- [ ] Nie pogarszać potwierdzonego wyniku na podstawie słabszych dowodów.
+- [ ] Dodać test, że pierwsza odpowiedź jest dostępna przed zakończeniem zadania w tle.
+- [ ] Dodać test zmiany lidera po pojawieniu się lepszych danych.
 
-### 4.10 — Weryfikacja oferty
+**Brama:** API od razu zwraca Top 3, a polling później pokazuje doprecyzowaną wersję bez resetu sesji.
 
-Backend sprawdza aktualność, dostępność, wariant, sprzedawcę, kompletność opisu, warunki zwrotu i gwarancji oraz dostępne sygnały bait listing lub pozornej promocji.
+## Faza 2 — Potwierdzanie cech i inteligentna korekta
 
-### 4.11 — Ranking i rekomendacja
+**Cel:** użytkownik sprawdza, czy agent zrozumiał produkt, zamiast ręcznie przechodzić do drugiego etapu.
 
-Oferty są oceniane osobno przez dopasowanie produktu, jakość oferty i wiarygodność sprzedawcy. Użytkownik otrzymuje minimum trzy wyniki, jedną rekomendację, koszt końcowy, ryzyka, braki danych i źródła.
+**Planowane pliki:** `app/conversation/service.py`, `app/conversation/feature_confirmation.py`, `app/api/sessions.py`, `tests/api/test_feature_confirmation.py`.
 
-### 4.12 — Zmiana preferencji
+- [ ] Po pierwszej iteracji zwrócić najważniejsze wywnioskowane cechy lidera do potwierdzenia.
+- [ ] Pozwolić potwierdzić komplet cech jednym komunikatem.
+- [ ] Pozwolić poprawić jedną lub kilka cech bez utraty researchu.
+- [ ] Klasyfikować zmianę jako `rerank`, `refetch` albo `new_product_research`.
+- [ ] Po korekcie aktualizować Top 3 i wskazanie lidera.
+- [ ] Po akceptacji stworzyć kanoniczny `ProductIdentity` i automatycznie uruchomić hunt.
+- [ ] Nie aktywować mandatu zakupowego na podstawie samego potwierdzenia cech.
+- [ ] Dodać test: „gwarancja ważniejsza niż cena” zmienia lidera bez zbędnego refetchu.
 
-Kolejna wiadomość jest klasyfikowana jako `rerank`, `refetch` albo `new_product_research`. Backend wykorzystuje wcześniejsze dane, jeśli są wystarczające, i nie resetuje sesji.
+**Brama:** zatwierdzenie cech tworzy hunt, a korekta zachowuje sesję, źródła i użyteczny cache.
 
-## Faza 0 — Zamrożone decyzje bazowe ✅
+## Faza 3 — Product identity, koszt końcowy i weryfikacja
 
-- [x] OpenAI `gpt-4o-mini` i oficjalne SDK.
-- [x] Supabase jako trwała pamięć backendu.
-- [x] Firecrawl jako pierwsze źródło realnych ofert.
-- [x] FastAPI, `BackgroundTasks` i polling `run_id` dla dłuższego wyszukiwania.
-- [x] Używane słuchawki jako jedna kategoria MVP.
-- [x] Dwa punkty wejścia oraz dwuetapowy research.
-- [x] Trzy osobne oceny: produkt, oferta i sprzedawca.
+**Cel:** monitoring działa wyłącznie na dokładnym produkcie i porównuje rzeczywisty znany koszt.
 
-## Faza 1 — Istniejący fundament techniczny ✅
+### 3A — Same-product matching
 
-- [x] Konfiguracja i fabryka FastAPI.
-- [x] Modele Pydantic i protokoły repozytoriów.
-- [x] Sesje, produkty, research, oferty, runy i rekomendacje.
-- [x] Adapter `ListingSource` oraz Firecrawl.
-- [x] Normalizacja ofert i idempotentny zapis `(source, external_id)`.
-- [x] Cache, twarde filtry i ranking deterministyczny.
-- [x] Obsługa częściowego wyniku po błędzie źródła.
-- [x] Mockowe testy dwóch wejść i minimum trzech ofert.
+- [ ] Utworzyć kanoniczną tożsamość: marka, model, generacja, konstrukcja, kolor i inne cechy wariantu.
+- [ ] Normalizować aliasy, skróty, kolejność słów i identyfikatory SKU/MPN/EAN.
+- [ ] Klasyfikować oferty jako `exact_match`, `possible_match` albo `mismatch`.
+- [ ] Zapisywać dowody i powody dopasowania.
+- [ ] Blokować zakup i Top 3 ofert dla `possible_match` oraz `mismatch`.
 
-## Faza 2 — Domknięcie przepływu brainstormu
+### 3B — Landed cost
 
-**Cel:** zakończyć pełny przepływ 4.1–4.12 przed dokładaniem usprawnień z case'u.
+- [ ] Dodać breakdown: cena, dostawa, obowiązkowe opłaty, FX, cło/podatek, kupon, total i waluta.
+- [ ] Nie traktować nieznanej opłaty jako zera bez `data_gap`.
+- [ ] Sprawdzać budżet i mandat względem kosztu końcowego.
+- [ ] Zapisywać kurs, timestamp, ważność kuponu i regułę zaokrąglenia.
 
-**Planowane pliki:** `app/conversation/service.py`, `app/orchestration/search.py`, `app/api/sessions.py`, `app/api/runs.py`, `tests/api/test_rerank_after_preference_change.py`.
+### 3C — Verification
 
-- [ ] Obsłużyć wiadomość użytkownika na etapie `results`.
-- [ ] Zamienić zmianę preferencji, np. „ważniejsza jest gwarancja”, na jawne wymagania domenowe.
-- [ ] Dla `rerank` wykorzystać istniejące świeże oferty bez ponownego wywołania źródła.
-- [ ] Dla nowego twardego filtra wykonać `refetch` tylko wtedy, gdy cache nie wystarcza.
-- [ ] Zachować `session_id`, wybrany produkt, research i historię zmian.
-- [ ] Wyjaśnić użytkownikowi, dlaczego kolejność ofert się zmieniła.
-- [ ] Dodać test end-to-end sprawdzający liczbę wywołań źródła i zmianę rankingu.
+- [ ] Potwierdzać aktualność, stock, sprzedawcę, gwarancję, zwrot i kompletność danych.
+- [ ] Wykrywać bait listing, pozorną promocję i krytyczną sprzeczność wariantu.
+- [ ] Ponownie weryfikować ofertę bezpośrednio przed checkoutem i zakupem.
+- [ ] Brak krytycznego dowodu kierować do eskalacji, nie do auto-buy.
 
-**Brama:** zmiana miękkiej preferencji zmienia ranking bez resetu sesji i bez zbędnego pobierania ofert.
+**Brama:** błędny wariant i oferta przekraczająca hard cap po doliczeniu dostawy nie mogą wygrać ani zostać kupione.
 
-## Faza 3 — Exact-product matching i koszt końcowy
+## Faza 4 — Hunt i kontrolowany monitoring
 
-**Cel:** dodać dwa najważniejsze brakujące elementy z case'u bez zmiany głównego UX.
+**Cel:** po ustaleniu produktu backend stale ocenia nowe i zmienione oferty.
 
-### 3A — Wzmocnione dopasowanie produktu
+**Planowane pliki:** `app/hunts/service.py`, `app/hunts/orchestrator.py`, `app/simulation/offer_events.py`, `app/api/hunts.py`, `tests/hunts/test_monitoring.py`.
 
-**Planowane pliki:** `app/matching/product_identity.py`, `app/listings/normalizer.py`, `app/domain/models.py`, `tests/matching/test_product_identity.py`.
+- [ ] Dodać stany huntu: `active`, `paused`, `alerted`, `awaiting_user`, `purchased`, `cancelled`.
+- [ ] Zapisać `ProductIdentity`, priorytety, twarde wymagania i wersję briefu.
+- [ ] Pobrać pierwszy snapshot ofert przez realny adapter.
+- [ ] Zbudować deterministyczne eventy: price, delivery, stock, coupon, availability i seller signal.
+- [ ] Dodać jawny endpoint `POST /hunts/{id}/ticks` dla demo.
+- [ ] Po każdym ticku wykonać matching, landed cost, verification i ranking.
+- [ ] Zapisywać checkpoint, aby retry nie przetwarzało eventu drugi raz.
+- [ ] Pozwolić pause, resume i cancel.
+- [ ] Zmiana priorytetów tworzy nową wersję briefu i ponownie ocenia istniejące obserwacje.
 
-- [ ] Utworzyć kanoniczną tożsamość produktu: marka, model, generacja, typ, kolor i inne cechy wariantu właściwe dla słuchawek.
-- [ ] Znormalizować aliasy, interpunkcję, skróty i kolejność wyrazów w tytułach.
-- [ ] Używać SKU/MPN/EAN jako silnego dowodu, jeśli jest dostępny.
-- [ ] Klasyfikować dopasowanie jako `exact_match`, `possible_match` albo `mismatch`.
-- [ ] Nie dopuszczać `possible_match` do automatycznego finalnego rankingu.
-- [ ] Zapisać powody i dowody dopasowania.
-- [ ] Dodać testy złej generacji, wersji, zestawu, koloru, podobnego modelu i brakującego identyfikatora.
+**Brama:** realny snapshot uruchamia hunt, a ten sam deterministyczny scenariusz zawsze prowadzi do tej samej najlepszej oferty.
 
-### 3B — Audytowalny koszt końcowy
+## Faza 5 — Alert JSON, polling i eskalacja
 
-**Planowane pliki:** `app/pricing/landed_cost.py`, `app/domain/models.py`, `app/ranking/engine.py`, `tests/pricing/test_landed_cost.py`.
+**Cel:** interfejs otrzymuje jedno zdarzenie wymagające decyzji, a system jest gotowy na przyszły kanał e-mail.
 
-- [ ] Dodać `LandedCostBreakdown`: cena, dostawa, obowiązkowe opłaty, FX, cło/podatek, kupon, total i waluta.
-- [ ] Dla krajowych ofert w PLN liczyć co najmniej cenę i dostawę.
-- [ ] Dla ofert zagranicznych zapisywać kurs, timestamp i regułę zaokrąglenia.
-- [ ] Sprawdzać ważność i zakres kuponu przed odjęciem rabatu.
-- [ ] Nie traktować nieznanej dostawy lub opłaty jako zera bez dodania `data_gap`.
-- [ ] Filtrować budżet po koszcie końcowym, a nie wyłącznie po cenie ogłoszenia.
-- [ ] Pokazywać breakdown w API i uzasadnieniu rekomendacji.
-- [ ] Dodać testy dokładnie na budżecie, o 0.01 powyżej oraz z nieważnym kuponem.
+**Planowane pliki:** `app/alerts/service.py`, `app/alerts/providers.py`, `app/api/alerts.py`, `tests/alerts/test_deduplication.py`.
 
-**Brama:** błędny wariant nie trafia do rankingu, a oferta z niższą ceną bazową może przegrać przez wyższy koszt końcowy.
+- [ ] Dodać model `AlertEvent` z typem, hunt, ofertą, kosztem, reason codes i statusem.
+- [ ] Deduplikować alert po hunt, brief version, offer i rodzaju okazji.
+- [ ] Udostępnić `GET /hunts/{id}/alerts?after=<cursor>`.
+- [ ] Zwracać cursor, `has_more` i timestamp do ciągłego pollingu.
+- [ ] Oznaczać alert jako `awaiting_user`, `accepted`, `dismissed`, `expired` albo `auto_purchased`.
+- [ ] Utworzyć protokół `NotificationProvider`; MVP implementuje `InAppJsonProvider`.
+- [ ] Zaprojektować payload bez zależności od UI, aby później dodać `EmailProvider`.
+- [ ] Traktować znalezienie najlepszej zweryfikowanej oferty bez mandatu jako eskalację.
+- [ ] Unieważnić alert po zmianie ceny, stocku albo briefu.
 
-## Faza 4 — Weryfikacja ofert i kontrolowany zestaw pułapek
+**Brama:** jedna okazja daje jeden alert JSON, polling nie zwraca duplikatów, a payload można przekazać innemu providerowi.
+
+## Faza 6 — Standing mandate, checkout i symulowany zakup
+
+**Cel:** zakup może wykonać się w tle tylko na podstawie jawnej, ograniczonej zgody.
+
+**Planowane pliki:** `app/mandates/models.py`, `app/mandates/policy.py`, `app/checkout/service.py`, `app/purchases/service.py`, `tests/mandates/test_purchase_policy.py`.
 
-**Cel:** nie rekomendować nieaktualnych, zwodniczych ani nieweryfikowalnych ofert.
-
-### 4A — Weryfikacja przed rankingiem
-
-**Planowane pliki:** `app/verification/offers.py`, `app/ranking/risk.py`, `tests/verification/test_offers.py`.
-
-- [ ] Potwierdzić aktualność, dostępność i dokładny wariant oferty.
-- [ ] Ocenić kompletność opisu, zdjęć, gwarancji, zwrotu i danych sprzedawcy.
-- [ ] Rozróżnić brak danych od negatywnego sygnału.
-- [ ] Wykrywać bait listing, gdy atrakcyjna cena dotyczy innego wariantu lub niedostępnego produktu.
-- [ ] Nie ufać deklarowanej „starej cenie” bez danych historycznych.
-- [ ] Oznaczać promocję jako `verified`, `unverified` albo `suspicious`.
-- [ ] Odrzucać ofertę z krytyczną niezgodnością; niekrytyczny brak obniża `confidence`.
-
-### 4B — Deterministyczne dane demo
-
-**Planowane pliki:** `tests/fixtures/deal_validation/`, `app/simulation/offer_events.py`, `tests/simulation/test_offer_events.py`.
-
-- [ ] Przygotować kontrolowane oferty: dobra okazja, zły wariant, bait listing, fake discount, nieaktualna oferta, niewiarygodny sprzedawca i brak kosztu dostawy.
-- [ ] Dodać zdarzenia zmiany ceny, dostępności, dostawy i ważności kuponu.
-- [ ] Użyć wstrzykiwanego zegara i deterministycznej kolejności zdarzeń.
-- [ ] Zapewnić ten sam wynik dla tego samego zestawu danych i preferencji.
-- [ ] Jawnie oznaczyć w API, czy wynik pochodzi z danych kontrolowanych, cache czy realnego źródła.
-
-**Brama:** pułapki nie trafiają do Top 3, a dobra oferta zachowuje stabilne uzasadnienie i koszt końcowy.
-
-## Faza 5 — Audyt rekomendacji i mierzalna jakość
-
-**Cel:** każda rekomendacja ma wystarczające dowody, a jakość można zmierzyć przed demo.
-
-**Planowane pliki:** `app/recommendations/audit.py`, `app/evals/runner.py`, `tests/evals/shopping_agent_cases.json`, `tests/evals/test_metrics.py`.
-
-- [ ] Zapisać snapshot wymagań i wersję preferencji użytych do rankingu.
-- [ ] Zapisać exact-match evidence, koszt końcowy i źródła pól.
-- [ ] Zapisać powody odrzucenia ofert niespełniających twardych warunków.
-- [ ] Pokazać maksymalnie trzy zalety, jeden kompromis, ryzyka i `data_gaps`.
-- [ ] Zbudować eval set zawierający dobre oferty oraz pułapki z fazy 4.
-- [ ] Mierzyć precision Top 3, odsetek błędnych wariantów, bait-rejection rate i dokładność kosztu końcowego.
-- [ ] Ustalić twardy gate: zero niewłaściwych wariantów w finalnym rankingu kontrolowanego zestawu.
-- [ ] Raportować osobno przypadki, w których system nie miał wystarczających danych.
-
-**Brama:** raport eval potwierdza brak błędnych wariantów i zaakceptowaną precyzję rekomendacji.
-
-## Faza 6 — Integracje na żywo
-
-**Cel:** potwierdzić, że istniejące integracje dostarczają dane wymagane przez rozszerzony model.
-
-### 6A — Supabase
-
-- [ ] Dodać migrację dla identity evidence, landed cost, verification i audytu.
-- [ ] Uruchomić migracje w projekcie developerskim.
-- [ ] Potwierdzić idempotencję ofert oraz historię cen i dostępności.
-- [ ] Wykonać smoke test pełnej sesji i ponownego rankingu.
-
-### 6B — OpenAI
-
-- [ ] Wykonać realne structured output dla obu punktów wejścia.
-- [ ] Potwierdzić limit trzech pytań i pojedynczą próbę naprawczą.
-- [ ] Nie pozwolić modelowi tworzyć źródeł, kosztów ani wyników punktowych.
-- [ ] Zmierzyć tokeny, koszt i opóźnienie sesji.
-
-### 6C — Firecrawl
-
-- [ ] Potwierdzić realną dostępność wariantu, dostawy, sprzedawcy, gwarancji, zwrotu i aktualności.
-- [ ] Niedostępne pola oznaczać jako `unknown`, nie uzupełniać ich domysłem.
-- [ ] Zweryfikować timeout, limity, regulamin i dozwolone domeny.
-- [ ] Zachować użyteczny cache po awarii źródła.
-
-**Brama:** pełna sesja na żywo zwraca minimum trzy oferty albo jawny częściowy wynik bez zmyślonych danych.
-
-## Faza 7 — Próba generalna demo
-
-**Cel:** pokazać pełny przepływ brainstormu wraz z najważniejszymi usprawnieniami z case'u w czasie krótszym niż trzy minuty.
-
-- [ ] Zamrozić dokładny wariant AirPods Pro używany jako wzorzec.
-- [ ] Zamrozić budżet i oczekiwane cechy scenariusza.
-- [ ] Przejść: prompt → 4–6 modeli → korekta kierunku → minimum trzy oferty.
-- [ ] Pokazać ofertę z atrakcyjną ceną bazową, która przegrywa przez dostawę lub inną obowiązkową opłatę.
-- [ ] Pokazać odrzucenie błędnego wariantu albo bait listing.
-- [ ] Pokazać trzy osobne oceny, koszt końcowy, źródła, ryzyko i braki danych.
-- [ ] Zmienić preferencję i wykonać rerank bez utraty kontekstu.
-- [ ] Przećwiczyć awarię źródła oraz wynik `partial` z cache.
-- [ ] Wykonać dwie pełne próby i zapisać czas, koszt oraz raport eval.
-- [ ] Zaktualizować `README.md` i znane ograniczenia.
-
-**Brama końcowa MVP:** oba punkty wejścia działają, cena pojawia się od pierwszej listy, koszt końcowy i wariant są poprawne, Top 3 nie zawiera pułapek, a zmiana preferencji nie resetuje sesji.
-
-## Definition of Done MVP 3.0
-
-- [ ] Obsługiwane są potrzeba użytkownika i produkt referencyjny.
-- [ ] Agent zadaje maksymalnie trzy istotne pytania.
-- [ ] Pierwsza lista zawiera 4–6 modeli, ceny, różnice i kompromisy.
-- [ ] Użytkownik może potwierdzić lub poprawić kierunek przed pełnym wyszukiwaniem.
-- [ ] Pełne wyszukiwanie zwraca minimum trzy oferty wybranego modelu.
-- [ ] Finalny ranking zawiera wyłącznie potwierdzone warianty.
-- [ ] Budżet jest sprawdzany względem znanego kosztu końcowego.
-- [ ] Bait listing, podejrzana promocja i nieaktualna oferta są odrzucane lub jawnie oznaczone.
-- [ ] Produkt, oferta i sprzedawca mają osobne oceny.
-- [ ] Każda rekomendacja zawiera źródła, czas, koszt końcowy, ryzyko i braki danych.
-- [ ] Zmiana miękkiej preferencji wykonuje rerank bez resetu i bez zbędnego refetchu.
-- [ ] Kontrolowany eval set nie przepuszcza niewłaściwego wariantu do Top 3.
-- [ ] Pełna sesja działa na danych kontrolowanych i co najmniej raz na realnych integracjach.
-- [ ] Automatyczny zakup i płatności nie są częścią MVP.
-
-## Roadmapa po MVP
-
-### Etap A — Monitoring okazji
-
-- cykliczne odświeżanie zapisanych wyszukiwań;
-- historia ceny i wykrywanie rzeczywistych spadków;
-- jeden istotny alert zamiast powtarzalnych powiadomień;
-- deduplikacja alertów oraz preferencje częstotliwości;
-- trwały scheduler zamiast `BackgroundTasks`.
-
-### Etap B — Wiele źródeł i dane transgraniczne
-
-- drugi marketplace lub oficjalne API;
-- pełne FX, cło, podatki i kupony dla wspieranych jurysdykcji;
-- deduplikacja tej samej oferty pomiędzy źródłami;
-- wspólny model sprzedawcy, gwarancji i zwrotów.
-
-### Etap C — Agentic checkout, dopiero po osobnej decyzji produktowej
-
-- checkout intent wymagający potwierdzenia użytkownika;
-- jawny, ograniczony i odwoływalny standing mandate;
-- hard caps egzekwowane w kodzie;
-- eskalowanie przypadków granicznych;
-- receipts z pełną matematyką i dowodami;
-- shadow mode, threat model, autoryzacja i integracja PSP przed realnym zakupem;
-- false-buy rate jako twarda metryka bezpieczeństwa.
-
-### Etap D — Rozszerzenie produktu
-
-- kolejne kategorie elektroniki z własnymi wariantami i kryteriami ryzyka;
-- podobieństwo wizualne;
-- długoterminowa pamięć preferencji za zgodą;
-- personalizacja wag i uczenie rankingu na zachowaniu użytkownika.
-
-## Macierz: elementy case'u w naszym rozwiązaniu
-
-- Same-product problem → faza 3A, jako wzmocnienie kontroli wariantu.
-- Landed cost zamiast sticker price → faza 3B.
-- Bait listings i fake discounts → faza 4A.
-- Mock merchants / deterministic simulator → faza 4B jako stabilne dane demo.
-- Receipts + why → faza 5 jako audyt rekomendacji, bez zakupu.
-- Proving it works → faza 5 i kontrolowane metryki jakości.
-- One alert that matters → roadmapa Etap A.
-- Standing consent, hard caps i auto-buy → roadmapa Etap C.
-- Strike precision i false-buy rate → po MVP dla monitoringu i agentic checkout; w MVP używamy precision Top 3 i variant-error rate.
-
-## Aktualne ryzyka
-
-- Rozszerzenia z case'u mogą rozmyć główny scenariusz; faza 2 brainstormu ma pierwszeństwo przed fazami 3–5.
-- Koszt końcowy może być niepełny, jeśli źródło nie podaje dostawy lub opłat; brak musi obniżać pewność.
-- Same-product matching bez identyfikatora może pozostać niejednoznaczny; taki wynik nie powinien wejść do Top 3.
-- Historia ceny może być zbyt krótka do potwierdzenia promocji; wtedy promocję oznaczamy jako niezweryfikowaną.
-- Firecrawl może nie dostarczać wszystkich sygnałów sprzedawcy, gwarancji i zwrotu.
-- Live scraping nie może blokować demo; kontrolowane dane pozostają planem stabilnym.
-- `BackgroundTasks` wystarcza do jednorazowego runu, ale nie do przyszłego monitoringu okazji.
+- [ ] Dodać wersjonowany `StandingMandate` z jawnym `confirmed_at` i możliwością odwołania.
+- [ ] Zapisać exact product, wariant, maksymalny landed cost, wymagany stan i twarde priorytety.
+- [ ] Użyć istniejących priorytetów produktu, oferty i sprzedawcy jako policy input.
+- [ ] Rozdzielić preferencje rankingowe od twardych warunków zakupu.
+- [ ] Nigdy nie tworzyć aktywnego mandatu wyłącznie z interpretacji LLM.
+- [ ] Dodać `checkout_intent` do każdej zaakceptowanej najlepszej oferty.
+- [ ] Bez mandatu wymagać `POST /checkout-intents/{id}/confirm`.
+- [ ] Z aktywnym mandatem uruchomić idempotentny purchase job przez `BackgroundTasks`.
+- [ ] Bezpośrednio przed zakupem ponownie sprawdzić ofertę, stock, koszt i mandat.
+- [ ] Przypadek niejednoznaczny lub niespełniający mandatu eskalować do alertu `awaiting_user`.
+- [ ] Zapisać symulowany wynik zakupu; nigdy nie obciążać prawdziwej metody płatności.
+
+**Brama:** nie istnieje ścieżka zakupu bez jawnego mandatu lub ręcznego potwierdzenia; hard cap jest nieprzekraczalny.
+
+## Faza 7 — Receipts i audyt
+
+**Cel:** każda rekomendacja, eskalacja i symulowany zakup są odtwarzalne.
+
+- [ ] Receipt zawiera snapshot briefu, wersję mandatu i exact-match evidence.
+- [ ] Pokazać cenę, dostawę, opłaty, FX, kupon i landed total.
+- [ ] Zapisać sprzedawcę, stock, gwarancję, zwrot i sygnały ryzyka.
+- [ ] Zapisać odrzucone oferty i powody odrzucenia liderów pozornych.
+- [ ] Zapisać decyzję `alert`, `escalate`, `manual_purchase` albo `auto_purchase`.
+- [ ] Dodać endpoint `GET /receipts/{id}`.
+- [ ] Dodać możliwość override'u użytkownika, tworzącą nową wersję briefu zamiast zmiany starego receiptu.
+
+**Brama:** wynik policy engine da się odtworzyć wyłącznie z receiptu i wersjonowanych danych.
+
+## Faza 8 — Eval set i bezpieczeństwo
+
+**Cel:** pułapki nie prowadzą do alertu ani zakupu, a metryki są mierzalne.
+
+- [ ] Przygotować exact match, wrong variant, bait listing, fake discount, expired coupon, missing delivery, no stock, seller risk i revoked mandate.
+- [ ] Mierzyć precision Top 3, variant-error rate, bait-rejection rate i landed-cost accuracy.
+- [ ] Mierzyć alert deduplication rate, escalation accuracy i false-buy rate.
+- [ ] Ustalić gate `false_buy_rate = 0` dla deterministycznego scenariusza.
+- [ ] Sprawdzić retry alertu, checkoutu i purchase jobu.
+- [ ] Potwierdzić, że odwołanie mandatu przed jobem blokuje zakup.
+
+**Brama:** zero false buys, zero złych wariantów w Top 3 i dokładnie jeden alert dla właściwej okazji.
+
+## Faza 9 — Integracje i próba generalna
+
+**Cel:** pokazać pełną ścieżkę od promptu do alertu oraz obu wariantów symulowanego zakupu.
+
+- [ ] Uruchomić migracje Supabase dla wersji wyników, huntów, alertów, mandatów, checkoutów, zakupów i receiptów.
+- [ ] Wykonać realny szybki research OpenAI + Firecrawl.
+- [ ] Potwierdzić realne pola: cena, wariant, dostawa, stock, sprzedawca, gwarancja i zwrot.
+- [ ] Braki oznaczać jako `unknown`; nie uzupełniać ich domysłem.
+- [ ] Przejść ścieżkę: prompt → natychmiastowe Top 3 → deepening → potwierdzenie cech → hunt.
+- [ ] Odtworzyć deterministyczny price event i otrzymać jeden alert JSON.
+- [ ] Bez mandatu eskalować najlepszą ofertę i wykonać ręcznie potwierdzony symulowany zakup.
+- [ ] W drugiej próbie aktywować mandat i wykonać purchase job w tle.
+- [ ] Pokazać receipt i raport eval z `false_buy_rate = 0`.
+- [ ] Zmierzyć czas pierwszej odpowiedzi, czas pogłębienia, polling, koszt API i czas całego demo.
+- [ ] Zaktualizować `README.md`, komendy startowe i znane ograniczenia.
+
+**Brama końcowa:** pierwsza odpowiedź daje Top 3 i lidera, wynik pogłębia się bez resetu, hunt generuje jeden alert, a oba warianty symulowanego zakupu przestrzegają hard capów.
+
+## Minimalne endpointy v3.1
+
+- `POST /sessions` — tworzy sesję.
+- `POST /sessions/{id}/messages` — zwraca Top 3, lidera i `run_id`.
+- `GET /runs/{run_id}` — zwraca wersjonowany progresywny wynik.
+- `POST /sessions/{id}/features/confirm` — potwierdza cechy i tworzy hunt.
+- `PATCH /sessions/{id}/features` — poprawia cechy i aktualizuje research.
+- `GET /hunts/{id}` — zwraca stan huntu i najlepszą ofertę.
+- `POST /hunts/{id}/ticks` — wykonuje deterministyczny cykl demo.
+- `PATCH /hunts/{id}` — pause, resume lub cancel.
+- `GET /hunts/{id}/alerts?after=<cursor>` — pollinguje nowe alerty JSON.
+- `POST /hunts/{id}/mandates` — tworzy mandat po jawnym potwierdzeniu.
+- `DELETE /hunts/{id}/mandates/{mandate_id}` — odwołuje mandat.
+- `POST /checkout-intents/{id}/confirm` — potwierdza symulowany zakup ręczny.
+- `GET /purchases/{id}` — zwraca status purchase jobu.
+- `GET /receipts/{id}` — zwraca audyt decyzji i zakupu.
+
+## Definition of Done v3.1
+
+- [ ] Pierwszy prompt zwraca dokładnie trzy propozycje i aktualnego lidera.
+- [ ] Każda propozycja ma orientacyjną cenę, źródło, czas i pewność.
+- [ ] Pogłębiony research działa w tle pod tym samym `run_id`.
+- [ ] Czat prosi o potwierdzenie lub korektę cech po pierwszej iteracji.
+- [ ] Potwierdzenie dokładnego produktu automatycznie tworzy hunt.
+- [ ] Pierwszy snapshot huntu pochodzi z realnego źródła.
+- [ ] Deterministyczne zdarzenie może zmienić najlepszą ofertę.
+- [ ] Exact match, landed cost i verification poprzedzają alert oraz zakup.
+- [ ] Jedna okazja generuje dokładnie jeden alert JSON.
+- [ ] Polling cursor nie zwraca duplikatów.
+- [ ] Bez mandatu najlepsza oferta jest eskalowana do użytkownika.
+- [ ] Mandat jest jawny, wersjonowany, odwoływalny i oparty na wcześniejszych priorytetach.
+- [ ] Checkout oraz zakup są symulowane.
+- [ ] Purchase job może działać w tle i ponownie sprawdza hard capy.
+- [ ] Niepewność, zmiana ceny lub brak stocku blokują auto-buy.
+- [ ] Każda decyzja ma receipt z pełną matematyką i dowodami.
+- [ ] False-buy rate deterministycznego scenariusza wynosi zero.
+
+## Świadomie poza zakresem
+
+- prawdziwe obciążenie karty lub konta;
+- integracja produkcyjnego PSP;
+- rzeczywisty zakup na zewnętrznym marketplace;
+- niezawodny scheduler produkcyjny i monitoring wszystkich sklepów 24/7;
+- wysyłka e-mail — kontrakt jest gotowy, ale MVP używa JSON w interfejsie;
+- wiele kategorii i własna kompletna baza produktów;
+- perfekcyjne wykrywanie podróbek i oszustw.
+
+## Najważniejsze ryzyka
+
+- „Natychmiastowy” wynik z realnego źródła wymaga twardego budżetu czasu i jawnego fallbacku do cache.
+- Aktualizacja lidera w tle może dezorientować UI; wynik musi być wersjonowany i wyjaśniać zmianę.
+- Potwierdzenie cech nie może zostać pomylone ze zgodą na zakup.
+- Mandat musi rozdzielać preferencje rankingowe od nieprzekraczalnych warunków zakupu.
+- `BackgroundTasks` nie jest trwałą kolejką; wystarcza do demo, ale purchase job może zginąć po restarcie.
+- Polling alertów wymaga cursorów i idempotencji, inaczej UI pokaże duplikaty.
+- Realne źródło może nie udostępniać stocku, gwarancji albo pełnego kosztu; brak krytycznego pola blokuje auto-buy.
+- Symulowany zakup musi być wyraźnie oznaczony, aby jury nie uznało go za prawdziwą transakcję.
