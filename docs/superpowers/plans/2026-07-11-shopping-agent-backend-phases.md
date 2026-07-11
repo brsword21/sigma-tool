@@ -36,13 +36,13 @@ Nazwy wykonawców poniżej są rolami. Przed startem należy potwierdzić rzeczy
 
 **Rezultat:** komplet sekretów, przykładowych danych oraz jednoznaczne decyzje eliminujące zgadywanie podczas implementacji.
 
-- [ ] Potwierdzić dostępny model LLM, jego SDK, nazwę modelu, structured output, limity i budżet.
-- [ ] Dostarczyć URL projektu Supabase, klucz backendowy i zgodę na wykonanie migracji w środowisku developerskim.
-- [ ] Dostarczyć działający kod scrapera OLX wraz z instrukcją uruchomienia i 2–3 zanonimizowanymi odpowiedziami wejście/wyjście.
-- [ ] Dostarczyć klucz Firecrawl albo jawnie wyłączyć fallback Firecrawl w MVP.
-- [ ] Ustalić, czy endpoint wyboru ma natychmiast zwracać `run_id`, a praca ma być uruchamiana przez `BackgroundTasks` — rekomendacja: tak.
-- [ ] Ustalić jedno środowisko demo, publiczny adres backendu i dozwolone originy CORS.
-- [ ] Utworzyć trzy worktree/gałęzie i wskazać Integratora jako jedyną osobę scalającą.
+- [x] Potwierdzić dostępny model LLM, jego SDK, nazwę modelu, structured output, limity i budżet. → **OpenAI gpt-4o-mini, SDK openai**
+- [x] Dostarczyć URL projektu Supabase, klucz backendowy i zgodę na wykonanie migracji w środowisku developerskim. → **do założenia, zgoda: tak; szczegóły w phase0-decisions.md**
+- [x] Dostarczyć działający kod scrapera OLX wraz z instrukcją uruchomienia i 2–3 zanonimizowanymi odpowiedziami wejście/wyjście. → **brak scrapera; Firecrawl jako jedyne źródło (nie fallback)**
+- [x] Dostarczyć klucz Firecrawl albo jawnie wyłączyć fallback Firecrawl w MVP. → **Firecrawl wchodzi do MVP jako primary source, klucz do dostarczenia**
+- [x] Ustalić, czy endpoint wyboru ma natychmiast zwracać `run_id`, a praca ma być uruchamiana przez `BackgroundTasks` — rekomendacja: tak. → **tak, BackgroundTasks + polling**
+- [x] Ustalić jedno środowisko demo, publiczny adres backendu i dozwolone originy CORS. → **lokalnie localhost:8000, CORS: localhost:3000, localhost:5173**
+- [x] Utworzyć trzy worktree/gałęzie i wskazać Integratora jako jedyną osobę scalającą. → **feat/integrator, feat/worker-a, feat/worker-b — utworzone**
 
 **Brama:** nie zaczynać integracji z usługami, dopóki sekrety i próbka OLX nie przejdą prostego smoke testu.
 
