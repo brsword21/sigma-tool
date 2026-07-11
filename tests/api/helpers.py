@@ -4,9 +4,11 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from app.api.dependencies import ApplicationServices
+from app.auth.models import AuthenticatedUser
 from app.conversation.service import ConversationService
 from app.domain.models import (
     ListingCondition,
+    NewPriceBenchmark,
     NormalizedListing,
     RawListing,
     ReferenceProduct,
@@ -61,9 +63,14 @@ class Sessions:
     def __init__(self) -> None:
         self.rows: dict[UUID, dict[str, Any]] = {}
 
-    async def create(self) -> UUID:
+    async def create(self, user_id: UUID | None = None) -> UUID:
         session_id = uuid4()
-        self.rows[session_id] = {"id": str(session_id), "requirements": {}}
+        self.rows[session_id] = {
+            "id": str(session_id),
+            "requirements": {},
+            "user_id": str(user_id) if user_id else None,
+            "updated_at": datetime.now(UTC).isoformat(),
+        }
         return session_id
 
     async def get(self, session_id: UUID) -> dict[str, Any] | None:
@@ -71,6 +78,38 @@ class Sessions:
 
     async def update(self, session_id: UUID, changes: dict[str, Any]) -> None:
         self.rows[session_id].update(changes)
+
+    async def list_for_user(self, user_id: UUID) -> list[dict[str, Any]]:
+        return [row for row in self.rows.values() if row.get("user_id") == str(user_id)]
+
+
+class Messages:
+    def __init__(self) -> None:
+        self.rows: list[dict[str, Any]] = []
+
+    async def add(self, session_id: UUID, role: str, content: str) -> UUID:
+        message_id = uuid4()
+        self.rows.append(
+            {
+                "id": str(message_id),
+                "session_id": str(session_id),
+                "role": role,
+                "content": content,
+                "created_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        return message_id
+
+    async def list_for_session(self, session_id: UUID) -> list[dict[str, Any]]:
+        return [row for row in self.rows if row["session_id"] == str(session_id)]
+
+
+class Auth:
+    def __init__(self, users_by_token: dict[str, AuthenticatedUser] | None = None) -> None:
+        self.users_by_token = users_by_token or {}
+
+    async def verify(self, access_token: str) -> AuthenticatedUser | None:
+        return self.users_by_token.get(access_token)
 
 
 class Products:
@@ -108,6 +147,7 @@ class Runs:
             "status": RunStatus.PENDING.value,
             "sources_succeeded": [],
             "error_summary": {},
+            "new_price_benchmark": None,
         }
         return run_id
 
@@ -118,12 +158,15 @@ class Runs:
         *,
         sources_succeeded: list[str] | None = None,
         error_summary: dict[str, str] | None = None,
+        new_price_benchmark: dict[str, Any] | None = None,
     ) -> None:
         self.rows[run_id]["status"] = status.value
         if sources_succeeded is not None:
             self.rows[run_id]["sources_succeeded"] = sources_succeeded
         if error_summary is not None:
             self.rows[run_id]["error_summary"] = error_summary
+        if status in {RunStatus.PARTIAL, RunStatus.COMPLETED, RunStatus.FAILED}:
+            self.rows[run_id]["new_price_benchmark"] = new_price_benchmark
 
     async def get(self, run_id: UUID) -> dict[str, Any] | None:
         return self.rows.get(run_id)
@@ -252,6 +295,28 @@ class Source:
         return None
 
 
+class BenchmarkSource:
+    source_name = "ceneo_firecrawl"
+
+    def __init__(self, *, fails: bool = False) -> None:
+        self.fails = fails
+        self.calls = 0
+
+    async def get_benchmark(
+        self, query: object, retrieved_at: datetime
+    ) -> NewPriceBenchmark | None:
+        del query
+        self.calls += 1
+        if self.fails:
+            raise RuntimeError("benchmark unavailable")
+        return NewPriceBenchmark(
+            product_name="Sony WF-XM0",
+            price=Decimal("799.00"),
+            url="https://www.ceneo.pl/123456",
+            retrieved_at=retrieved_at,
+        )
+
+
 def cached_listings() -> list[NormalizedListing]:
     return [
         NormalizedListing(
@@ -274,7 +339,12 @@ def cached_listings() -> list[NormalizedListing]:
     ]
 
 
-def build_services(*, source_fails: bool = False) -> ApplicationServices:
+def build_services(
+    *,
+    source_fails: bool = False,
+    benchmark_fails: bool = False,
+    users_by_token: dict[str, AuthenticatedUser] | None = None,
+) -> ApplicationServices:
     clock = FixedClock()
     sessions = Sessions()
     products = Products()
@@ -282,12 +352,14 @@ def build_services(*, source_fails: bool = False) -> ApplicationServices:
     listings = Listings(cached_listings() if source_fails else None)
     recommendations = Recommendations(listings)
     research_repository = Research()
+    messages = Messages()
     orchestrator = SearchOrchestrator(
         runs=runs,
         listings=listings,
         recommendations=recommendations,
         research=ResearchService(research_repository, clock),  # type: ignore[arg-type]
         sources=[Source(fails=source_fails)],
+        benchmark_source=BenchmarkSource(fails=benchmark_fails),
         clock=clock,
     )
     return ApplicationServices(
@@ -299,4 +371,6 @@ def build_services(*, source_fails: bool = False) -> ApplicationServices:
         product_research=research_repository,
         orchestrator=orchestrator,
         clock=clock,
+        messages=messages,
+        auth=Auth(users_by_token),
     )

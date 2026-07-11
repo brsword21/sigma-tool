@@ -1,4 +1,6 @@
 .env
+prototype/znajdz/config.js
+tmp/
 .venv/
 __pycache__/
 *.py[cod]

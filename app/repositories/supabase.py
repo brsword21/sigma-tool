@@ -40,8 +40,9 @@ class SupabaseSessionRepository:
     def __init__(self, client: Any) -> None:
         self._client = client
 
-    async def create(self) -> UUID:
-        rows = _execute(self._client.table("sessions").insert({}))
+    async def create(self, user_id: UUID | None = None) -> UUID:
+        payload = {"user_id": str(user_id)} if user_id else {}
+        rows = _execute(self._client.table("sessions").insert(payload))
         if not rows:
             raise RuntimeError("Supabase did not return the created session")
         return UUID(str(rows[0]["id"]))
@@ -53,6 +54,37 @@ class SupabaseSessionRepository:
     async def update(self, session_id: UUID, changes: dict[str, Any]) -> None:
         payload = {**changes, "updated_at": datetime.now(UTC).isoformat()}
         _execute(self._client.table("sessions").update(payload).eq("id", str(session_id)))
+
+    async def list_for_user(self, user_id: UUID) -> list[dict[str, Any]]:
+        return _execute(
+            self._client.table("sessions")
+            .select("*")
+            .eq("user_id", str(user_id))
+            .order("updated_at", desc=True)
+        )
+
+
+class SupabaseMessageRepository:
+    def __init__(self, client: Any) -> None:
+        self._client = client
+
+    async def add(self, session_id: UUID, role: str, content: str) -> UUID:
+        rows = _execute(
+            self._client.table("messages").insert(
+                {"session_id": str(session_id), "role": role, "content": content}
+            )
+        )
+        if not rows:
+            raise RuntimeError("Supabase did not return the created message")
+        return UUID(str(rows[0]["id"]))
+
+    async def list_for_session(self, session_id: UUID) -> list[dict[str, Any]]:
+        return _execute(
+            self._client.table("messages")
+            .select("id,session_id,role,content,created_at")
+            .eq("session_id", str(session_id))
+            .order("created_at")
+        )
 
 
 class SupabaseSearchRunRepository:
@@ -79,6 +111,7 @@ class SupabaseSearchRunRepository:
         *,
         sources_succeeded: list[str] | None = None,
         error_summary: dict[str, str] | None = None,
+        new_price_benchmark: dict[str, Any] | None = None,
     ) -> None:
         now = datetime.now(UTC).isoformat()
         payload: dict[str, Any] = {"status": status.value}
@@ -90,6 +123,8 @@ class SupabaseSearchRunRepository:
             payload["sources_succeeded"] = sources_succeeded
         if error_summary is not None:
             payload["error_summary"] = error_summary
+        if status in {RunStatus.PARTIAL, RunStatus.COMPLETED, RunStatus.FAILED}:
+            payload["new_price_benchmark"] = new_price_benchmark
         _execute(self._client.table("search_runs").update(payload).eq("id", str(run_id)))
 
     async def get(self, run_id: UUID) -> dict[str, Any] | None:

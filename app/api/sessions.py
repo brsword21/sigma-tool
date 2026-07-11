@@ -4,11 +4,19 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from app.api.dependencies import ApplicationServices, get_services
+from app.api.dependencies import (
+    ApplicationServices,
+    get_current_user,
+    get_optional_user,
+    get_services,
+)
+from app.auth.models import AuthenticatedUser
 from app.domain.models import ConversationStage, Requirements, RunStatus, SearchDirection
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 Services = Annotated[ApplicationServices, Depends(get_services)]
+OptionalUser = Annotated[AuthenticatedUser | None, Depends(get_optional_user)]
+CurrentUser = Annotated[AuthenticatedUser, Depends(get_current_user)]
 
 
 class MessageRequest(BaseModel):
@@ -20,9 +28,29 @@ class SelectProductRequest(BaseModel):
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def create_session(services: Services) -> dict[str, Any]:
-    session_id = await services.sessions.create()
+async def create_session(services: Services, user: OptionalUser) -> dict[str, Any]:
+    session_id = await services.sessions.create(user.id if user else None)
     return {"session_id": str(session_id), "stage": ConversationStage.DISCOVERY.value}
+
+
+@router.get("/history")
+async def list_history(services: Services, user: CurrentUser) -> dict[str, Any]:
+    sessions = await services.sessions.list_for_user(user.id)
+    return {"sessions": sessions}
+
+
+@router.get("/{session_id}/history")
+async def get_history(
+    session_id: UUID,
+    services: Services,
+    user: CurrentUser,
+) -> dict[str, Any]:
+    session = await services.sessions.get(session_id)
+    _assert_session_access(session, user, require_owner=True)
+    messages = (
+        await services.messages.list_for_session(session_id) if services.messages else []
+    )
+    return {"session": session, "messages": messages}
 
 
 @router.post("/{session_id}/messages")
@@ -31,10 +59,12 @@ async def add_message(
     payload: MessageRequest,
     background_tasks: BackgroundTasks,
     services: Services,
+    user: OptionalUser,
 ) -> dict[str, Any]:
     session = await services.sessions.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    _assert_session_access(session, user)
+    if services.messages and session.get("user_id"):
+        await services.messages.add(session_id, "user", payload.message)
     current = Requirements.model_validate(session.get("requirements") or {})
     result = await services.conversation.handle_message(payload.message, current)
     selected_product_id = session.get("selected_product_id")
@@ -67,7 +97,7 @@ async def add_message(
             result.requirements,
             False,
         )
-        return {
+        response = {
             "session_id": str(session_id),
             "stage": ConversationStage.SEARCHING.value,
             "run_id": str(run_id),
@@ -75,6 +105,8 @@ async def add_message(
             "candidates": [],
             "is_final_ranking": True,
         }
+        await _save_assistant_message(services, session_id, "Aktualizuję ranking ofert.", session)
+        return response
     stage = (
         ConversationStage.DISCOVERY
         if result.question
@@ -109,7 +141,7 @@ async def add_message(
             "message_summary": payload.message,
         },
     )
-    return {
+    response = {
         "session_id": str(session_id),
         "stage": stage.value,
         "question": result.question,
@@ -121,6 +153,9 @@ async def add_message(
         "candidates": candidates,
         "is_final_ranking": False,
     }
+    assistant_text = result.question or f"Mam {len(candidates)} dopasowane propozycje."
+    await _save_assistant_message(services, session_id, assistant_text, session)
+    return response
 
 
 @router.post("/{session_id}/products/{product_id}/select", status_code=status.HTTP_202_ACCEPTED)
@@ -130,11 +165,11 @@ async def select_product(
     payload: SelectProductRequest,
     background_tasks: BackgroundTasks,
     services: Services,
+    user: OptionalUser,
 ) -> dict[str, Any]:
     session = await services.sessions.get(session_id)
     product = await services.products.get(product_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    _assert_session_access(session, user)
     if product is None:
         raise HTTPException(status_code=404, detail={"code": "product_not_found"})
     requirements = Requirements.model_validate(session.get("requirements") or {}).model_copy(
@@ -163,3 +198,28 @@ async def select_product(
         requirements,
     )
     return {"run_id": str(run_id), "status": RunStatus.PENDING.value}
+
+
+def _assert_session_access(
+    session: dict[str, Any] | None,
+    user: AuthenticatedUser | None,
+    *,
+    require_owner: bool = False,
+) -> None:
+    if session is None:
+        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    owner_id = session.get("user_id")
+    if require_owner and owner_id is None:
+        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    if owner_id is not None and (user is None or str(user.id) != str(owner_id)):
+        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+
+
+async def _save_assistant_message(
+    services: ApplicationServices,
+    session_id: UUID,
+    content: str,
+    session: dict[str, Any],
+) -> None:
+    if services.messages and session.get("user_id") and content:
+        await services.messages.add(session_id, "assistant", content)

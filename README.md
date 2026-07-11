@@ -25,9 +25,25 @@ Przed pierwszym uruchomieniem zastosuj kolejno:
 
 - `supabase/migrations/001_initial_schema.sql`
 - `supabase/migrations/002_demo_hardening.sql`
+- `supabase/migrations/003_auth_chat_history.sql`
+- `supabase/migrations/004_ceneo_new_price_benchmark.sql`
 
 Można wkleić je do SQL Editora developerskiego projektu Supabase albo, dla połączonego
 lokalnego projektu Supabase CLI, wykonać `supabase db push`.
+
+## Opcjonalne logowanie i historia
+
+Frontend obsługuje logowanie magic linkiem przez Supabase Auth. Gość może nadal używać
+aplikacji bez konta, ale tylko rozmowy rozpoczęte po zalogowaniu są przypisywane do
+użytkownika i dostępne w historii.
+
+W Supabase Dashboard otwórz **Authentication → URL Configuration**, ustaw adres strony
+jako Site URL i dodaj lokalny oraz produkcyjny adres do Redirect URLs. Magic link nie
+wróci pod adres, którego nie ma na tej liście.
+
+Backend weryfikuje access token po stronie Supabase i wymaga zastosowania migracji `003`.
+Klucz `SUPABASE_SERVICE_ROLE_KEY` pozostaje wyłącznie w `.env` backendu. Przeglądarka używa
+osobnego publicznego klucza publishable/anon skonfigurowanego zgodnie z instrukcją prototypu.
 
 ## Testy
 
@@ -88,7 +104,10 @@ Faza 5 nie wykonuje checkoutu, zakupu ani płatności i nie jest produkcyjnym sc
 
 ## Dane i ograniczenia demo
 
-- Firecrawl jest jedynym źródłem ofert i ma osobny timeout 20 sekund.
+- Firecrawl obsługuje oferty OLX oraz osobny benchmark najniższej ceny nowego produktu
+  na Ceneo; każde wywołanie ma timeout 20 sekund.
+- Benchmark Ceneo zawiera dokładnie jedną stronę produktu i nie uczestniczy w rankingu
+  ofert używanych. Jest dostępny jako `new_price_benchmark` w `GET /runs/{run_id}`.
 - Pełne pobieranie ofert rusza dopiero po wyborze produktu; późniejsza miękka zmiana
   preferencji wykonuje rerank cache bez ponownego pobierania.
 - Model i generacja są filtrem twardym przed scoringiem.
@@ -98,7 +117,7 @@ Faza 5 nie wykonuje checkoutu, zakupu ani płatności i nie jest produkcyjnym sc
   `unknown`, jeśli payload źródła ich nie zawiera. System ich nie domyśla.
 - Research bez dostarczonego źródła ma `unverified_product_research`, pustą listę źródeł
   i obniżoną pewność.
-- Błąd Firecrawl nie powoduje błędu 500 runu: dostępny cache daje status `partial`, a brak
-  danych kontrolowany status `failed`.
+- Błąd OLX albo Ceneo nie powoduje błędu 500 runu: dostępne wyniki drugiego źródła lub
+  cache dają status `partial`, a brak ofert używanych kontrolowany status `failed`.
 - BackgroundTasks wystarcza do lokalnego demo, ale nie zapewnia trwałości pracy po
   restarcie procesu i nie jest kolejką produkcyjną.

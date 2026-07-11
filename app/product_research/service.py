@@ -11,7 +11,8 @@ PRODUCT_RESEARCH_PROMPT_V1 = """Przygotuj zwięzły brief zakupu używanych słu
 Podawaj jako potwierdzone wyłącznie fakty poparte URL-ami z pola allowed_sources wejścia.
 Nie twórz nowych URL-i. Gdy źródeł brakuje, zwróć sources=[], obniż confidence i wpisz
 unverified_product_research do data_gaps. Możesz podać ogólne kontrole przed zakupem,
-ale oznacz niepotwierdzone ryzyka jako braki danych. Nie oceniaj ogłoszeń ani rankingu."""
+ale oznacz niepotwierdzone ryzyka jako braki danych. Parametry zwróć jako listę par
+name/value. Nie oceniaj ogłoszeń ani rankingu."""
 
 
 class ProductResearchService:
@@ -36,6 +37,9 @@ class ProductResearchService:
             response_model=ProductResearchOutput,
         )
         payload = result.model_dump(mode="json")
+        payload["key_parameters"] = {
+            parameter.name: parameter.value for parameter in result.key_parameters
+        }
         payload["sources"] = [
             str(source) for source in result.sources if str(source) in allowed_sources
         ]

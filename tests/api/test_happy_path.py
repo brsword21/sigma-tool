@@ -40,6 +40,14 @@ def test_both_entry_points_reach_three_ranked_offers(
         run = client.get(f"/runs/{selection.json()['run_id']}").json()
 
     assert run["status"] == "completed"
+    assert run["new_price_benchmark"] == {
+        "product_name": "Sony WF-XM0",
+        "price": "799.00",
+        "currency": "PLN",
+        "url": "https://www.ceneo.pl/123456",
+        "source": "ceneo_firecrawl",
+        "retrieved_at": "2026-07-11T12:00:00Z",
+    }
     assert len(run["recommendations"]) == 3
     breakdown = run["recommendations"][0]["score_breakdown"]
     assert {"product_match", "offer_quality", "seller_trust"} <= breakdown.keys()
@@ -50,6 +58,10 @@ def test_both_entry_points_reach_three_ranked_offers(
     assert "data_gaps" in listing
     assert run["recommendations"][0]["source_url"] == listing["url"]
     assert run["recommendations"][0]["retrieved_at"] == listing["retrieved_at"]
+    assert all(
+        recommendation["listings"]["source"] != "ceneo_firecrawl"
+        for recommendation in run["recommendations"]
+    )
 
 
 def test_direction_change_updates_session_without_reset() -> None:

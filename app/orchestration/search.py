@@ -1,11 +1,12 @@
 import asyncio
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from time import perf_counter
 from typing import Any
 from uuid import UUID
 
 from app.domain.models import (
+    NewPriceBenchmark,
     NormalizedListing,
     Requirements,
     RunStatus,
@@ -23,7 +24,7 @@ from app.repositories.protocols import (
     SearchRunRepository,
 )
 from app.services.ports import Clock
-from app.sources.base import ListingSource
+from app.sources.base import ListingSource, NewPriceBenchmarkSource
 
 TOP_RESULTS = 5
 TOTAL_RESULTS = 20
@@ -49,6 +50,7 @@ class SearchOrchestrator:
         sources: list[ListingSource],
         clock: Clock,
         explanations: RecommendationExplanationService | None = None,
+        benchmark_source: NewPriceBenchmarkSource | None = None,
     ) -> None:
         self._runs = runs
         self._listings = listings
@@ -57,10 +59,14 @@ class SearchOrchestrator:
         self._sources = sources
         self._clock = clock
         self._explanations = explanations
+        self._benchmark_source = benchmark_source
 
     @property
     def source_names(self) -> list[str]:
-        return [source.source_name for source in self._sources]
+        names = [source.source_name for source in self._sources]
+        if self._benchmark_source is not None:
+            names.append(self._benchmark_source.source_name)
+        return names
 
     async def run(
         self,
@@ -80,9 +86,19 @@ class SearchOrchestrator:
             direction=requirements.search_direction.value,
         )
         await self._runs.set_status(run_id, RunStatus.RUNNING)
-        brief_result, listing_result = await asyncio.gather(
+        benchmark_query = SearchQuery(
+            product_id=product_id,
+            model=str(
+                product.get("canonical_name")
+                or f"{product.get('brand', '')} {product['model']}".strip()
+            ),
+            variants=requirements.required_variants,
+            limit=10,
+        )
+        brief_result, listing_result, benchmark_result = await asyncio.gather(
             self._research.get_or_create(product_id, product),
             self._collect_listings(product_id, product, requirements, allow_fetch=allow_fetch),
+            _timed_benchmark(self._benchmark_source, benchmark_query, self._clock.now()),
             return_exceptions=True,
         )
         errors: dict[str, str] = {}
@@ -95,6 +111,16 @@ class SearchOrchestrator:
             else ListingCollection([], [], {"listings": _safe_error(listing_result)}, {})
         )
         errors.update(collection.errors)
+        benchmark: NewPriceBenchmark | None = None
+        benchmark_timing_ms = 0
+        if isinstance(benchmark_result, tuple):
+            benchmark, benchmark_error, benchmark_timing_ms = benchmark_result
+            if benchmark_error is not None and self._benchmark_source is not None:
+                errors[self._benchmark_source.source_name] = _safe_error(benchmark_error)
+            elif benchmark is None and self._benchmark_source is not None:
+                errors[self._benchmark_source.source_name] = "No matching Ceneo product with price"
+        elif isinstance(benchmark_result, BaseException) and self._benchmark_source is not None:
+            errors[self._benchmark_source.source_name] = _safe_error(benchmark_result)
         expected_variant = str(
             (product.get("specifications") or {}).get("exact_variant")
             or product.get("model")
@@ -155,11 +181,15 @@ class SearchOrchestrator:
             if ranked
             else RunStatus.FAILED
         )
+        sources_succeeded = list(collection.sources_succeeded)
+        if benchmark is not None and self._benchmark_source is not None:
+            sources_succeeded.append(self._benchmark_source.source_name)
         await self._runs.set_status(
             run_id,
             status,
-            sources_succeeded=collection.sources_succeeded,
+            sources_succeeded=sources_succeeded,
             error_summary=errors,
+            new_price_benchmark=(benchmark.model_dump(mode="json") if benchmark else None),
         )
         log_event(
             "search_run_finished",
@@ -167,6 +197,7 @@ class SearchOrchestrator:
             status=status.value,
             duration_ms=round((perf_counter() - started) * 1000),
             source_timings_ms=collection.source_timings_ms,
+            benchmark_timing_ms=benchmark_timing_ms,
             stale_cache_count=collection.stale_count,
             rejected_variant_count=rejected_variants,
             recommendation_count=len(ranked),
@@ -289,6 +320,21 @@ async def _timed_search(
         return await source.search(query), None, round((perf_counter() - started) * 1000)
     except BaseException as exc:
         return [], exc, round((perf_counter() - started) * 1000)
+
+
+async def _timed_benchmark(
+    source: NewPriceBenchmarkSource | None,
+    query: SearchQuery,
+    retrieved_at: datetime,
+) -> tuple[NewPriceBenchmark | None, BaseException | None, int]:
+    if source is None:
+        return None, None, 0
+    started = perf_counter()
+    try:
+        benchmark = await source.get_benchmark(query, retrieved_at)
+        return benchmark, None, round((perf_counter() - started) * 1000)
+    except BaseException as exc:
+        return None, exc, round((perf_counter() - started) * 1000)
 
 
 def _merge_listings(
